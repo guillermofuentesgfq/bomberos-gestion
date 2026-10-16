@@ -34,8 +34,15 @@ export interface ImageUploaderProps {
   value: number | null;
   onChange: (objectId: number | null) => void;
   /**
-   * Las imágenes del sitio público deben ser públicas para poder servirse sin
-   * sesión. Las del inventario se quedan privadas.
+   * Ámbito del almacén al que pertenece la imagen: decide qué permiso exige
+   * subirla, verla y retirarla. `site` (sitio público), `inventory` (materiales)
+   * o `person` (personal).
+   */
+  scope: 'site' | 'inventory' | 'person';
+  /**
+   * Solo las imágenes del sitio pueden publicarse (servirse sin sesión). Por
+   * defecto **no** se publica: publicar es una decisión explícita de quien tiene
+   * autoridad sobre el sitio.
    */
   isPublic?: boolean | undefined;
 }
@@ -44,10 +51,12 @@ async function uploadImage(
   file: File,
   csrfToken: string,
   isPublic: boolean,
+  scope: 'site' | 'inventory' | 'person',
 ): Promise<UploadResponse> {
   const form = new FormData();
   form.append('file', file);
   form.append('isPublic', isPublic ? 'true' : 'false');
+  form.append('scope', scope);
 
   let response: Response;
   try {
@@ -80,7 +89,8 @@ export function ImageUploader({
   hint,
   value,
   onChange,
-  isPublic = true,
+  scope,
+  isPublic = false,
 }: ImageUploaderProps) {
   const inputId = useId();
   const cameraId = useId();
@@ -105,7 +115,7 @@ export function ImageUploader({
 
     setBusy(true);
     try {
-      const uploaded = await uploadImage(file, csrfToken, isPublic);
+      const uploaded = await uploadImage(file, csrfToken, isPublic, scope);
       setFailedPreview(false);
       onChange(uploaded.id);
     } catch (cause) {

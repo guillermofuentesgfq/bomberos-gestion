@@ -442,6 +442,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
               hint="Es la imagen principal de la portada y de la cabecera del sitio."
               value={institution.shieldObjectId}
               onChange={(objectId) => setInstitution({ ...institution, shieldObjectId: objectId })}
+              scope="site"
+              isPublic={true}
             />
             <ImageUploader
               csrfToken={csrfToken}
@@ -449,6 +451,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
               hint="Opcional. Se usa en el pie de página."
               value={institution.logoObjectId}
               onChange={(objectId) => setInstitution({ ...institution, logoObjectId: objectId })}
+              scope="site"
+              isPublic={true}
             />
           </div>
 
@@ -458,6 +462,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
             hint="Se muestra como fondo de la portada del sitio."
             value={institution.coverObjectId}
             onChange={(objectId) => setInstitution({ ...institution, coverObjectId: objectId })}
+            scope="site"
+            isPublic={true}
           />
 
           <div className="grid gap-5 md:grid-cols-2">
@@ -547,6 +553,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
               hint="Se muestra al compartir el enlace del sitio."
               value={seo.ogImageObjectId}
               onChange={(objectId) => setSeo({ ...seo, ogImageObjectId: objectId })}
+              scope="site"
+              isPublic={true}
             />
             <CheckboxField
               id="seo-indexing"

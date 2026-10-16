@@ -227,6 +227,7 @@ describe('edición de materiales y catálogo', () => {
     const form = new FormData();
     form.append('file', new File([bytes], 'casco.png', { type: 'image/png' }));
     form.append('isPublic', 'false');
+    form.append('scope', 'inventory');
     const response = await api.request<{ id: number }>('POST', '/api/v1/files', {
       form,
       csrf: true,
@@ -745,6 +746,7 @@ describe('catálogo de personas y ficha', () => {
     const form = new FormData();
     form.append('file', new File([bytes], 'persona.png', { type: 'image/png' }));
     form.append('isPublic', 'false');
+    form.append('scope', 'person');
     const uploaded = await api.request<{ id: number }>('POST', '/api/v1/files', {
       form,
       csrf: true,

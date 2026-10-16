@@ -9,6 +9,10 @@ import {
   validateImageFile,
 } from '../lib/image';
 import { logAudit } from '../security/audit';
+import type { PermissionCode } from '../security/permissions';
+
+/** Ámbito al que pertenece un objeto: decide qué permiso exige cada operación. */
+export type StorageScope = 'site' | 'inventory' | 'person';
 
 /** Fila completa de `storage_objects`. */
 export interface StorageObjectRow {
@@ -21,6 +25,7 @@ export interface StorageObjectRow {
   height: number | null;
   checksum: string | null;
   is_public: number;
+  scope: StorageScope;
   alt_text: string | null;
   caption: string | null;
   uploaded_by: number | null;
@@ -29,7 +34,7 @@ export interface StorageObjectRow {
 }
 
 const STORAGE_COLUMNS = `id, object_key, original_name, content_type, byte_size,
-  width, height, checksum, is_public, alt_text, caption, uploaded_by, created_at, archived_at`;
+  width, height, checksum, is_public, scope, alt_text, caption, uploaded_by, created_at, archived_at`;
 
 export interface StoreObjectInput {
   bytes: Uint8Array<ArrayBuffer>;
@@ -38,6 +43,7 @@ export interface StoreObjectInput {
   altText: string | null;
   caption: string | null;
   isPublic: boolean;
+  scope: StorageScope;
   uploadedBy: number | null;
   ipHash: string | null;
 }
@@ -50,7 +56,24 @@ export interface StoredObject {
   width: number;
   height: number;
   isPublic: boolean;
+  scope: StorageScope;
 }
+
+/**
+ * Permiso de lectura y de escritura que exige cada ámbito del almacén.
+ *
+ * Es la política que impide el salto entre dominios: leer o archivar la foto de
+ * una persona exige `persons.read`/`persons.write`, no el permiso de cualquier
+ * otro apartado que comparta el mismo almacén.
+ */
+export const SCOPE_PERMISSIONS: Record<
+  StorageScope,
+  { read: PermissionCode; write: PermissionCode }
+> = {
+  site: { read: 'site.read', write: 'site.write' },
+  inventory: { read: 'inventory.read', write: 'inventory.write' },
+  person: { read: 'persons.read', write: 'persons.write' },
+};
 
 /** SHA-256 hexadecimal sobre los bytes crudos (no sobre una codificación). */
 async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
@@ -66,6 +89,13 @@ async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
  * imagen no es válida.
  */
 export async function storeObject(env: Env, input: StoreObjectInput): Promise<StoredObject> {
+  // `is_public` solo está previsto para imágenes institucionales del sitio: un
+  // objeto de inventario o de una persona es siempre privado, y publicarlo exige
+  // autoridad del dominio sitio (se comprueba además en la ruta).
+  if (input.isPublic && input.scope !== 'site') {
+    throw AppError.unprocessable('Solo las imágenes del sitio pueden publicarse.');
+  }
+
   const validation = validateImageFile(input.bytes, input.declaredType ?? undefined);
   if (!validation.ok) {
     throw AppError.unprocessable(validation.reason);
@@ -82,8 +112,8 @@ export async function storeObject(env: Env, input: StoreObjectInput): Promise<St
     env.DB,
     `INSERT INTO storage_objects
        (object_key, original_name, content_type, byte_size, width, height, checksum,
-        is_public, alt_text, caption, uploaded_by, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        is_public, scope, alt_text, caption, uploaded_by, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     objectKey,
     input.originalName,
     contentType,
@@ -92,6 +122,7 @@ export async function storeObject(env: Env, input: StoreObjectInput): Promise<St
     validation.height,
     checksum,
     input.isPublic ? 1 : 0,
+    input.scope,
     input.altText,
     input.caption,
     input.uploadedBy,
@@ -123,7 +154,28 @@ export async function storeObject(env: Env, input: StoreObjectInput): Promise<St
     width: validation.width,
     height: validation.height,
     isPublic: input.isPublic,
+    scope: input.scope,
   };
+}
+
+/**
+ * Comprueba que el objeto referido existe, no está archivado y pertenece al
+ * ámbito esperado. Es lo que impide que una ficha de persona enlace la foto
+ * privada de otro dominio (o al revés): la referencia se valida al escribir,
+ * no solo al leer.
+ */
+export async function requireScopedObject(
+  db: D1Database,
+  id: number,
+  scope: StorageScope,
+): Promise<StorageObjectRow> {
+  const record = await getObjectRecord(db, id);
+  if (!record || record.scope !== scope) {
+    throw AppError.unprocessable(
+      'El archivo indicado no existe o no corresponde a este apartado.',
+    );
+  }
+  return record;
 }
 
 /** Devuelve la fila de `storage_objects` o `null` si no existe o está archivada. */

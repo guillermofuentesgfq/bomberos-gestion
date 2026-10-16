@@ -817,6 +817,7 @@ function PersonEditForm({
         hint="Dato personal: se guarda de forma privada y solo se ve con sesión iniciada (aquí y en la ficha imprimible)."
         value={form.values.photoObjectId}
         onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+        scope="person"
         isPublic={false}
       />
 

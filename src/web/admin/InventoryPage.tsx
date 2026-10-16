@@ -296,6 +296,7 @@ function MaterialCreateForm({
           hint="Opcional. Se guarda de forma privada y solo se ve en el panel."
           value={form.values.photoObjectId}
           onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+          scope="inventory"
           isPublic={false}
         />
 
@@ -483,6 +484,7 @@ function MaterialEditForm({
         hint="Se guarda de forma privada y solo se ve en el panel."
         value={form.values.photoObjectId}
         onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+        scope="inventory"
         isPublic={false}
       />
 

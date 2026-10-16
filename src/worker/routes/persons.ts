@@ -15,6 +15,7 @@ import * as assignmentsRepo from '../repositories/assignments';
 import * as catalog from '../repositories/catalog';
 import { actaInstitution } from '../services/actas';
 import { assignMaterial, returnMaterial } from '../services/assignments';
+import { requireScopedObject } from '../services/storage';
 import {
   inFlightError,
   reserveIdempotency,
@@ -165,6 +166,11 @@ personRoutes.get('/', requireAuth, requirePermission('persons.read'), async (c) 
 
 personRoutes.post('/', requireAuth, requireCsrf, requirePermission('persons.write'), async (c) => {
   const body = await readJson(c, personBodySchema);
+  // La foto referida debe ser un objeto de ámbito «persona»: así una ficha no
+  // puede enlazar (y por tanto exponer) la foto privada de otro apartado.
+  if (body.photoObjectId !== undefined && body.photoObjectId !== null) {
+    await requireScopedObject(c.env.DB, body.photoObjectId, 'person');
+  }
   const id = await personsRepo.insertPerson(c.env.DB, {
     fullName: body.fullName,
     rut: body.rut ?? null,
@@ -317,6 +323,9 @@ personRoutes.put('/:id', requireAuth, requireCsrf, requirePermission('persons.wr
   const body = await readJson(c, personBodySchema);
   const person = await personsRepo.findPersonById(c.env.DB, id);
   if (!person) throw AppError.notFound('Persona no encontrada.');
+  if (body.photoObjectId !== undefined && body.photoObjectId !== null) {
+    await requireScopedObject(c.env.DB, body.photoObjectId, 'person');
+  }
   await personsRepo.updatePerson(c.env.DB, id, {
     fullName: body.fullName,
     rut: body.rut ?? null,

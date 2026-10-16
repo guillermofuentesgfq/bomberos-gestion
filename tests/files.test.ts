@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiClient, countRows } from './helpers';
+import { ApiClient, countRows, seedUser } from './helpers';
 
 const PNG_1X1_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -13,6 +13,22 @@ function pngForm(): FormData {
   const form = new FormData();
   form.append('file', new File([pngBytes()], 'foto.png', { type: 'image/png' }));
   return form;
+}
+
+/** Formulario de subida con un ámbito concreto (por defecto, el del sitio). */
+function scopedForm(scope: 'site' | 'inventory' | 'person'): FormData {
+  const form = pngForm();
+  form.append('scope', scope);
+  return form;
+}
+
+async function uploadScoped(api: ApiClient, scope: 'site' | 'inventory' | 'person'): Promise<number> {
+  const response = await api.request<{ id: number }>('POST', '/api/v1/files', {
+    form: scopedForm(scope),
+    csrf: true,
+  });
+  expect(response.status).toBe(201);
+  return response.body.data?.id ?? 0;
 }
 
 async function adminClient(): Promise<ApiClient> {
@@ -72,5 +88,71 @@ describe('almacenamiento de archivos', () => {
     const anonymous = new ApiClient();
     const response = await anonymous.request('POST', '/api/v1/files', { form: pngForm(), csrf: true });
     expect(response.status).toBe(401);
+  });
+
+  it('exige el permiso del ámbito del objeto para verlo y retirarlo', async () => {
+    const api = await adminClient();
+    const materialPhoto = await uploadScoped(api, 'inventory');
+    const personPhoto = await uploadScoped(api, 'person');
+
+    // Editor del sitio (site.read + site.write, sin inventario ni personas).
+    await seedUser('editor-sitio', 'ContrasenaLarga123', 'site_editor');
+    const editor = new ApiClient();
+    expect(await editor.login('editor-sitio', 'ContrasenaLarga123')).toBe(200);
+
+    // No ve las fotos de otros apartados (404 enmascarado)…
+    expect((await editor.get(`/api/v1/files/${materialPhoto}`)).status).toBe(404);
+    expect((await editor.get(`/api/v1/files/${personPhoto}`)).status).toBe(404);
+    // …ni puede retirarlas.
+    expect((await editor.del(`/api/v1/files/${materialPhoto}`)).status).toBe(403);
+    expect((await editor.del(`/api/v1/files/${personPhoto}`)).status).toBe(403);
+
+    // Quien tiene el permiso del ámbito sí ve la foto de ese ámbito: el control
+    // es el permiso por ámbito, no un permiso general de la subida.
+    await seedUser('encargado', 'ContrasenaLarga123', 'inventory_manager');
+    const manager = new ApiClient();
+    expect(await manager.login('encargado', 'ContrasenaLarga123')).toBe(200);
+    expect((await manager.get(`/api/v1/files/${materialPhoto}`)).status).toBe(200);
+  });
+
+  it('solo quien administra el sitio puede publicar una imagen', async () => {
+    await adminClient();
+    await seedUser('encargado', 'ContrasenaLarga123', 'inventory_manager');
+    const manager = new ApiClient();
+    expect(await manager.login('encargado', 'ContrasenaLarga123')).toBe(200);
+
+    // Publicar exige autoridad del sitio, aunque el ámbito sea el de inventario.
+    const publicInventory = scopedForm('inventory');
+    publicInventory.append('isPublic', 'true');
+    expect(
+      (await manager.request('POST', '/api/v1/files', { form: publicInventory, csrf: true })).status,
+    ).toBe(403);
+
+    // Y subir a un ámbito ajeno, también.
+    expect(
+      (await manager.request('POST', '/api/v1/files', { form: scopedForm('site'), csrf: true })).status,
+    ).toBe(403);
+
+    // Una imagen privada de su propio ámbito sí se admite.
+    expect(
+      (await manager.request('POST', '/api/v1/files', { form: scopedForm('inventory'), csrf: true })).status,
+    ).toBe(201);
+  });
+
+  it('no permite enlazar en una persona o un material una foto de otro apartado', async () => {
+    const api = await adminClient();
+    const sitePhoto = await uploadScoped(api, 'site');
+
+    const person = await api.post('/api/v1/persons', {
+      fullName: 'Persona de Prueba',
+      photoObjectId: sitePhoto,
+    });
+    expect(person.status).toBe(422);
+
+    const material = await api.post('/api/v1/inventory/materials', {
+      name: 'Material de Prueba',
+      photoObjectId: sitePhoto,
+    });
+    expect(material.status).toBe(422);
   });
 });

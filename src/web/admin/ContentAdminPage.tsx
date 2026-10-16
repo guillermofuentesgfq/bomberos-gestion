@@ -747,6 +747,7 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
                               hint="Se muestra en el listado y en la ficha del sitio. Debe ser pública."
                               value={coverDraft}
                               onChange={setCoverDraft}
+                              scope="site"
                               isPublic={true}
                             />
                             {coverError ? <Alert tone="error">{coverError}</Alert> : null}
@@ -1021,6 +1022,7 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
               hint="Se sube como imagen pública para que se vea en el sitio."
               value={pendingObjectId}
               onChange={setPendingObjectId}
+              scope="site"
               isPublic={true}
             />
             <TextField
@@ -1140,6 +1142,7 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
               hint="Se muestra en el listado y en la ficha. Debe ser pública."
               value={createCoverObjectId}
               onChange={setCreateCoverObjectId}
+              scope="site"
               isPublic={true}
             />
           )}

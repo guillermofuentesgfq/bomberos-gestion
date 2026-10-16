@@ -1,19 +1,19 @@
 import { Hono } from 'hono';
+import { z } from 'zod';
 import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { ok } from '../lib/http';
 import { MAX_IMAGE_BYTES } from '../lib/image';
-import {
-  requireAuth,
-  requireAnyPermission,
-  requireCsrf,
-} from '../security/middleware';
-import { hasAnyPermission } from '../security/permissions';
+import { parseWith } from '../lib/validate';
+import { requireAuth, requireCsrf } from '../security/middleware';
+import { hasPermission } from '../security/permissions';
 import {
   archiveObject,
   getObjectRecord,
   objectBody,
+  SCOPE_PERMISSIONS,
   storeObject,
+  type StorageScope,
 } from '../services/storage';
 
 type AppEnv = { Bindings: Env; Variables: Variables };
@@ -22,6 +22,8 @@ type AppEnv = { Bindings: Env; Variables: Variables };
 const MULTIPART_OVERHEAD_BYTES = 256 * 1024;
 
 export const filesRoutes = new Hono<AppEnv>();
+
+const scopeSchema = z.enum(['site', 'inventory', 'person']);
 
 function optionalText(value: FormDataEntryValue | null, maxLength: number): string | null {
   if (typeof value !== 'string') return null;
@@ -51,58 +53,75 @@ function inlineDisposition(name: string | null): string {
 
 /**
  * Sube una imagen. Cuerpo `multipart/form-data` con el campo obligatorio
- * `file` y los campos opcionales `alt`, `caption`, `isPublic` y `originalName`.
+ * `file` y los campos opcionales `alt`, `caption`, `isPublic`, `scope` y
+ * `originalName`.
+ *
+ * El `scope` decide qué permiso de escritura se exige y a qué dominio pertenece
+ * el objeto: `site` (sitio público), `inventory` (materiales) o `person`
+ * (personal). Solo los objetos del sitio pueden marcarse como públicos.
  */
-filesRoutes.post(
-  '/',
-  requireAuth,
-  requireCsrf,
-  requireAnyPermission(['inventory.write', 'site.write']),
-  async (c) => {
-    const declaredLength = Number(c.req.header('content-length') ?? '0');
-    if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES) {
-      throw AppError.payloadTooLarge('La carga supera el tamaño máximo permitido.');
-    }
+filesRoutes.post('/', requireAuth, requireCsrf, async (c) => {
+  const declaredLength = Number(c.req.header('content-length') ?? '0');
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES) {
+    throw AppError.payloadTooLarge('La carga supera el tamaño máximo permitido.');
+  }
 
-    let form: FormData;
-    try {
-      form = await c.req.formData();
-    } catch {
-      throw AppError.badRequest('Se esperaba una carga multipart/form-data con el campo "file".');
-    }
+  let form: FormData;
+  try {
+    form = await c.req.formData();
+  } catch {
+    throw AppError.badRequest('Se esperaba una carga multipart/form-data con el campo "file".');
+  }
 
-    const entry = form.get('file');
-    if (!(entry instanceof File)) {
-      throw AppError.unprocessable('Falta el campo "file" con la imagen.');
-    }
-    if (entry.size > MAX_IMAGE_BYTES) {
-      throw AppError.payloadTooLarge('La imagen supera el tamaño máximo permitido.');
-    }
+  const entry = form.get('file');
+  if (!(entry instanceof File)) {
+    throw AppError.unprocessable('Falta el campo "file" con la imagen.');
+  }
+  if (entry.size > MAX_IMAGE_BYTES) {
+    throw AppError.payloadTooLarge('La imagen supera el tamaño máximo permitido.');
+  }
 
-    const user = c.get('user');
-    if (!user) throw AppError.unauthorized();
+  const user = c.get('user');
+  if (!user) throw AppError.unauthorized();
 
-    const bytes = new Uint8Array(await entry.arrayBuffer());
-    const stored = await storeObject(c.env, {
-      bytes,
-      originalName:
-        optionalText(form.get('originalName'), 255) ?? (entry.name.length > 0 ? entry.name : null),
-      declaredType: entry.type.length > 0 ? entry.type : null,
-      altText: optionalText(form.get('alt'), 300),
-      caption: optionalText(form.get('caption'), 1000),
-      isPublic: parseBoolean(form.get('isPublic')),
-      uploadedBy: user.id,
-      ipHash: c.get('ipHash'),
-    });
+  const scope: StorageScope = parseWith(scopeSchema, optionalText(form.get('scope'), 20) ?? 'site');
+  const isPublic = parseBoolean(form.get('isPublic'));
 
-    return ok(c, stored, 201);
-  },
-);
+  // Cada ámbito exige su propio permiso de escritura; publicar exige además el
+  // del sitio, porque `is_public` es la puerta al nivel anónimo.
+  if (!hasPermission(user.permissions, SCOPE_PERMISSIONS[scope].write)) {
+    throw AppError.forbidden('No tienes permiso para subir archivos de este apartado.');
+  }
+  if (isPublic && !hasPermission(user.permissions, SCOPE_PERMISSIONS.site.write)) {
+    throw AppError.forbidden('Solo quien administra el sitio puede publicar imágenes.');
+  }
+
+  const bytes = new Uint8Array(await entry.arrayBuffer());
+  const originalName =
+    optionalText(form.get('originalName'), 255) ??
+    optionalText(entry.name, 255);
+
+  const stored = await storeObject(c.env, {
+    bytes,
+    originalName,
+    declaredType: entry.type.length > 0 ? entry.type : null,
+    altText: optionalText(form.get('alt'), 300),
+    caption: optionalText(form.get('caption'), 1000),
+    isPublic,
+    scope,
+    uploadedBy: user.id,
+    ipHash: c.get('ipHash'),
+  });
+
+  return ok(c, stored, 201);
+});
 
 /**
  * Descarga una imagen. Las públicas se sirven sin sesión; las privadas exigen
- * sesión y permiso de lectura. A quien no puede verlas se le responde 404 para
- * no revelar su existencia.
+ * sesión y el permiso de lectura del ámbito al que pertenecen (una foto de una
+ * persona exige `persons.read`, la de un material `inventory.read`, y un objeto
+ * del sitio `site.read`). A quien no puede verlas se le responde 404 para no
+ * revelar su existencia.
  */
 filesRoutes.get('/:id', async (c) => {
   const id = parseObjectId(c.req.param('id'));
@@ -111,7 +130,7 @@ filesRoutes.get('/:id', async (c) => {
 
   if (record.is_public !== 1) {
     const user = c.get('user');
-    if (!user || !hasAnyPermission(user.permissions, ['inventory.read', 'site.read'])) {
+    if (!user || !hasPermission(user.permissions, SCOPE_PERMISSIONS[record.scope].read)) {
       throw AppError.notFound();
     }
   }
@@ -134,26 +153,28 @@ filesRoutes.get('/:id', async (c) => {
 
 /**
  * Archiva un objeto (no borra el objeto de R2; la limpieza es posterior).
+ *
+ * El permiso que se exige es el del ámbito del objeto: archivar la foto de una
+ * persona pide `persons.write`, no el permiso de cualquier otro apartado que
+ * comparta el almacén.
  */
-filesRoutes.delete(
-  '/:id',
-  requireAuth,
-  requireCsrf,
-  requireAnyPermission(['inventory.write', 'site.write']),
-  async (c) => {
-    const id = parseObjectId(c.req.param('id'));
-    const user = c.get('user');
-    if (!user) throw AppError.unauthorized();
+filesRoutes.delete('/:id', requireAuth, requireCsrf, async (c) => {
+  const id = parseObjectId(c.req.param('id'));
+  const user = c.get('user');
+  if (!user) throw AppError.unauthorized();
 
-    const record = await getObjectRecord(c.env.DB, id);
-    if (!record) throw AppError.notFound();
+  const record = await getObjectRecord(c.env.DB, id);
+  if (!record) throw AppError.notFound();
 
-    await archiveObject(c.env, c.env.DB, id, {
-      id: user.id,
-      username: user.username,
-      ipHash: c.get('ipHash'),
-    });
+  if (!hasPermission(user.permissions, SCOPE_PERMISSIONS[record.scope].write)) {
+    throw AppError.forbidden('No tienes permiso para retirar archivos de este apartado.');
+  }
 
-    return ok(c, { id, archived: true });
-  },
-);
+  await archiveObject(c.env, c.env.DB, id, {
+    id: user.id,
+    username: user.username,
+    ipHash: c.get('ipHash'),
+  });
+
+  return ok(c, { id, archived: true });
+});

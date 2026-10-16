@@ -21,6 +21,7 @@ import {
   writeOff,
 } from '../services/inventory';
 import { actaInstitution } from '../services/actas';
+import { requireScopedObject } from '../services/storage';
 import {
   inFlightError,
   reserveIdempotency,
@@ -291,6 +292,10 @@ const createMaterialSchema = z.object({
 
 inventoryRoutes.post('/materials', requireAuth, requireCsrf, requirePermission('inventory.write'), async (c) => {
   const body = await readJson(c, createMaterialSchema);
+  // La foto referida debe ser un objeto de ámbito «inventario».
+  if (body.photoObjectId !== undefined && body.photoObjectId !== null) {
+    await requireScopedObject(c.env.DB, body.photoObjectId, 'inventory');
+  }
   const created = await createMaterial({ DB: c.env.DB }, body, actorFrom(c));
   return ok(c, created, 201);
 });
@@ -316,6 +321,9 @@ inventoryRoutes.put(
   async (c) => {
     const id = parseId(c.req.param('id'), 'material');
     const body = await readJson(c, updateMaterialSchema);
+    if (body.photoObjectId !== undefined && body.photoObjectId !== null) {
+      await requireScopedObject(c.env.DB, body.photoObjectId, 'inventory');
+    }
     const updated = await updateMaterial({ DB: c.env.DB }, id, body, actorFrom(c));
     const totals = (await materials.stockSummary(c.env.DB)).find((row) => row.material_id === id);
     return ok(c, {
