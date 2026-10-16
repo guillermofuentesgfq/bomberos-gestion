@@ -1,13 +1,75 @@
 @import 'tailwindcss';
 
 /*
- * Tokens de diseño base. El design system completo (paleta institucional
- * configurable, tipografía y escala) se generará en la fase de frontend con
- * ui-ux-pro-max y se plasmará en `design-system/bomberos-gestion/MASTER.md`.
+ * Tipografía institucional autoalojada. Atkinson Hyperlegible se sirve desde el
+ * mismo origen (`public/fonts`) para que la instalación no dependa de servicios
+ * externos. Solo se usan los pesos 400 (cuerpo) y 700 (encabezados).
+ */
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-400-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-400-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-700-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Atkinson Hyperlegible';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/atkinson-hyperlegible-700-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304,
+    U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB,
+    U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/*
+ * Tokens de diseño. Los nombres semánticos apuntan a las variables de tiempo de
+ * ejecución, de modo que la institución pueda reemplazar `--brand-primary` y
+ * `--brand-secondary` sin tocar los componentes (ver DESIGN.md).
  */
 @theme {
-  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Atkinson Hyperlegible', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --radius-card: 0.75rem;
+
+  --color-brand: var(--brand-primary);
+  --color-brand-secondary: var(--brand-secondary);
+  --color-accent: #0369a1;
+  --color-accent-strong: #075985;
+  --color-surface: var(--surface);
+  --color-muted: var(--surface-muted);
+  --color-ink: var(--text);
+  --color-ink-muted: var(--text-muted);
+  --color-line: var(--border);
+  --color-destructive: #b91c1c;
+  --color-ring: #0f172a;
 }
 
 :root {
@@ -20,6 +82,7 @@
   --text: #0f172a;
   --text-muted: #475569;
   --border: #e2e8f0;
+  color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -29,5 +92,58 @@
     --text: #e5e7eb;
     --text-muted: #9ca3af;
     --border: #1f2937;
+    --color-ring: #e5e7eb;
+  }
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 100%;
+  background-color: var(--surface-muted);
+  color: var(--text);
+}
+
+body {
+  margin: 0;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Foco visible siempre: nunca se elimina el outline sin sustituto. */
+:focus-visible {
+  outline: 3px solid var(--color-ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Enlace "saltar al contenido" para navegación por teclado. */
+.skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  z-index: 50;
+  transform: translateY(-200%);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  border: 2px solid var(--color-brand);
+  font-weight: 600;
+  transition: transform 150ms ease-out;
+}
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+/* Movimiento explicativo, nunca decorativo. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

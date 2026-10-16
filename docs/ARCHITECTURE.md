@@ -54,15 +54,23 @@ D1 no ofrece transacciones interactivas entre peticiones: no se puede leer,
 decidir en el código y escribir de forma atómica. Las garantías se construyen
 así:
 
-1. **Guardas atómicas.** Restar existencias siempre es un `UPDATE` condicional
-   comprobado por filas afectadas:
+1. **Guardas por restricción de esquema.** Restar existencias es un `UPDATE`
+   que **no** comprueba el saldo en SQL, sino que confía en la restricción
+   `CHECK (quantity >= 0)`:
    ```sql
+   INSERT OR IGNORE INTO stock_levels
+     (material_id, location_id, condition_code, quantity, updated_at)
+     VALUES (?, ?, ?, 0, ?);          -- asegura que la fila existe
+
    UPDATE stock_levels
       SET quantity = quantity - ?, updated_at = ?
-    WHERE material_id = ? AND location_id = ? AND condition_code = ?
-      AND quantity >= ?;
+    WHERE material_id = ? AND location_id = ? AND condition_code = ?;
    ```
-   Si `meta.changes !== 1`, no había stock suficiente y la operación se aborta.
+   Si la resta dejaría un saldo negativo, la restricción `CHECK` rechaza la
+   sentencia y **toda la transacción se revierte**. La capa de servicio
+   traduce esa violación a un error de negocio («No hay existencias
+   suficientes»). El mismo patrón protege las devoluciones parciales mediante
+   `CHECK (returned_qty <= quantity)` en `assignment_lines`.
 2. **`db.batch()`.** Todas las escrituras de una operación (existencias,
    asignación, movimiento, auditoría) van en un solo batch, que es transaccional:
    si una sentencia falla, se revierte el conjunto.

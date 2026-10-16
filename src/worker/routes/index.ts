@@ -3,6 +3,9 @@ import type { Env, Variables } from '../lib/env';
 import { ok } from '../lib/http';
 import { attachContext } from '../security/middleware';
 import { authRoutes } from './auth';
+import { inventoryRoutes } from './inventory';
+import { personRoutes } from './persons';
+import { filesRoutes } from './files';
 
 /** Router de la API v1. Aquí se montan los módulos por dominio. */
 export const api = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -29,3 +32,6 @@ api.use('*', async (c, next) => {
 api.use('*', attachContext);
 
 api.route('/auth', authRoutes);
+api.route('/inventory', inventoryRoutes);
+api.route('/persons', personRoutes);
+api.route('/files', filesRoutes);
