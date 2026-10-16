@@ -1,4 +1,4 @@
-import { all, first, run } from '../lib/db';
+import { all, batch, first, run, stmt } from '../lib/db';
 import { nowIso } from '../lib/time';
 import type { HashedPassword, StoredPassword } from '../security/passwords';
 
@@ -79,13 +79,22 @@ export async function insertUser(
   );
   const userId = Number(created.meta.last_row_id);
 
-  for (const code of roleCodes) {
-    await run(
+  // Los roles se asignan en un solo lote con los códigos desduplicados: un
+  // código repetido violaría la clave primaria de `user_roles` a mitad de
+  // secuencia y dejaría la cuenta a medio crear.
+  const codes = [...new Set(roleCodes)];
+  if (codes.length > 0) {
+    await batch(
       db,
-      `INSERT INTO user_roles (user_id, role_id)
-         SELECT ?, id FROM roles WHERE code = ? AND archived_at IS NULL`,
-      userId,
-      code,
+      codes.map((code) =>
+        stmt(
+          db,
+          `INSERT INTO user_roles (user_id, role_id)
+             SELECT ?, id FROM roles WHERE code = ? AND archived_at IS NULL`,
+          userId,
+          code,
+        ),
+      ),
     );
   }
   return userId;
@@ -102,7 +111,7 @@ export async function setPassword(
     `UPDATE users
         SET password_hash = ?, password_salt = ?, password_iterations = ?, password_algo = ?,
             must_change_password = ?, failed_attempts = 0, locked_until = NULL, updated_at = ?
-      WHERE id = ?`,
+      WHERE id = ? AND archived_at IS NULL`,
     password.hash,
     password.salt,
     password.iterations,
@@ -270,16 +279,21 @@ export async function replaceUserRoles(
   id: number,
   roleCodes: readonly string[],
 ): Promise<void> {
-  await run(db, `DELETE FROM user_roles WHERE user_id = ?`, id);
-  for (const code of roleCodes) {
-    await run(
-      db,
-      `INSERT INTO user_roles (user_id, role_id)
-         SELECT ?, id FROM roles WHERE code = ? AND archived_at IS NULL`,
-      id,
-      code,
-    );
-  }
+  const codes = [...new Set(roleCodes)];
+  // Borrado y reinserción en un solo lote: o el usuario queda con su conjunto
+  // nuevo de roles, o no se toca nada.
+  await batch(db, [
+    stmt(db, `DELETE FROM user_roles WHERE user_id = ?`, id),
+    ...codes.map((code) =>
+      stmt(
+        db,
+        `INSERT INTO user_roles (user_id, role_id)
+           SELECT ?, id FROM roles WHERE code = ? AND archived_at IS NULL`,
+        id,
+        code,
+      ),
+    ),
+  ]);
 }
 
 export async function unlockUser(db: D1Database, id: number): Promise<void> {

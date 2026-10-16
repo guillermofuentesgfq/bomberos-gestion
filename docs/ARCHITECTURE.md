@@ -115,14 +115,14 @@ autenticación, y solo para el sitio institucional.
 La **foto de una persona** es un dato personal y siempre es privada; la foto de
 un material, también. Se sirven con sesión, nunca desde el sitio público.
 
-**Límite conocido del modelo:** la comprobación de acceso a un objeto privado es
-por **permiso general**, no por objeto. Cualquier sesión con `inventory.read` o
-`site.read` puede descargar cualquier objeto privado conociendo su
-identificador, y los identificadores son correlativos. Hoy es aceptable porque
-todo el personal con acceso al panel es de la misma institución, pero **no** lo
-sería si se añadiera un rol externo o de solo consulta pública. Cerrarlo exige
-etiquetar cada objeto con su ámbito (`storage_objects.scope`, por ejemplo
-`inventory` / `person` / `site`) y comprobar el permiso correspondiente.
+**El acceso es por objeto, según su ámbito.** Cada objeto lleva su `scope`
+(`site`, `inventory` o `person`): descargar una foto privada exige el permiso de
+lectura de ese ámbito (`persons.read` para la de una persona, `inventory.read`
+para la de un material, `site.read` para las del sitio) y archivarla, el de
+escritura. Publicar (`is_public = 1`) exige autoridad del sitio y solo está
+previsto para imágenes institucionales: un objeto de inventario o de una persona
+es privado por construcción. Las referencias también se validan al escribir, de
+modo que una ficha de persona no puede enlazar la foto de otro apartado.
 
 ### Texto enriquecido y XSS
 

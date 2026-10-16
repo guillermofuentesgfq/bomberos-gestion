@@ -97,9 +97,10 @@ Estas ya han costado tiempo. Si vas a tocar alguna de estas zonas, léelas antes
   permiso. Solo los objetos con `is_public = 1` se sirven sin autenticación.
 - **La foto de una persona es un dato personal: siempre privada.** Nunca al sitio
   público.
-- **Límite conocido:** el acceso a un objeto privado se comprueba **por permiso
-  general, no por objeto** (`inventory.read` o `site.read` bastan) y los
-  identificadores son correlativos. Ver `docs/ARCHITECTURE.md`.
+- **El acceso es por objeto, según su ámbito** (`storage_objects.scope`): ver o
+  archivar la foto de una persona exige `persons.read`/`persons.write`, la de un
+  material `inventory.read`/`inventory.write`. Publicar exige autoridad del
+  sitio. Al subir hay que indicar el `scope`; ver `docs/ARCHITECTURE.md`.
 
 ### Interfaz y diseño
 

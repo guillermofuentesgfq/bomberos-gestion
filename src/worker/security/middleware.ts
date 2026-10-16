@@ -63,8 +63,9 @@ export function requirePermission(code: PermissionCode) {
 
 /**
  * Exige al menos uno de los permisos indicados. Útil cuando una misma acción
- * sirve a áreas distintas (por ejemplo, subir imágenes tanto para inventario
- * como para el sitio web).
+ * sirve a áreas distintas; si las áreas exigen permisos distintos según el
+ * objeto (como los archivos, que se autorizan por su ámbito), la comprobación
+ * se hace en el manejador.
  */
 export function requireAnyPermission(codes: readonly PermissionCode[]) {
   return createMiddleware<AppEnv>(async (c, next) => {

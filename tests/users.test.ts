@@ -236,4 +236,21 @@ describe('gestión de usuarios', () => {
     });
     expect(create.status).toBe(403);
   });
+
+  it('tolera un rol repetido en el alta y lo asigna una sola vez', async () => {
+    const api = await adminClient();
+
+    // El rol duplicado se desduplica antes de escribir: si no, violaría la clave
+    // primaria de `user_roles` a mitad de secuencia.
+    const created = await api.post<{ id: number }>(USERS, {
+      username: 'repetido',
+      password: 'ContrasenaLarga123',
+      roles: ['viewer', 'viewer'],
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.data?.id ?? 0;
+
+    const list = await api.get<{ users: { id: number; roles: string[] }[] }>(USERS);
+    expect(list.body.data?.users.find((u) => u.id === id)?.roles).toEqual(['viewer']);
+  });
 });
