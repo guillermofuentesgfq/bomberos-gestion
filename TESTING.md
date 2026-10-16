@@ -23,8 +23,8 @@ prueba, conservando las tablas de referencia.
 ## Estado actual (real)
 
 ```
-Test Files  13 passed (13)
-     Tests  151 passed (151)
+Test Files  14 passed (14)
+     Tests  174 passed (174)
 ```
 
 | Archivo | Qué cubre |
@@ -41,6 +41,7 @@ Test Files  13 passed (13)
 | `tests/inventory.test.ts` | integridad de existencias, entregas, devoluciones parciales, idempotencia, concurrencia, inyección SQL, **edición de materiales, foto privada, catálogo y actas imprimibles de entrega y baja** |
 | `tests/files.test.ts` | privacidad de archivos y rechazo de contenido activo |
 | `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo (contenido y textos institucionales)** |
+| `tests/maintenance.test.ts` | limpieza programada (sesiones, intentos de ingreso y reservas de idempotencia caducadas) y acotado del `user-agent` |
 | `tests/users.test.ts` | alta, edición, roles, contraseña temporal, desbloqueo y archivado de usuarios; **protecciones para no quedarse sin administrador** y control de permisos |
 
 ## Cobertura de los casos exigidos
@@ -72,6 +73,12 @@ Test Files  13 passed (13)
 | Foto del personal | ✅ cubierto (se sube como objeto privado y aparece en el detalle y en la ficha; `null` la quita) |
 | Gestión de usuarios | ✅ cubierto (alta con contraseña temporal, listado con roles y sus permisos, cambio de roles y estado, desbloqueo y archivado; restablecer la contraseña **cierra las sesiones** y vuelve a exigir el cambio) |
 | Protección contra el bloqueo total | ✅ cubierto (no se puede desactivar ni quitar el rol de administrador a la propia cuenta, ni dejar la instalación sin ningún administrador activo) |
+| Ámbitos de archivos | ✅ cubierto (el permiso de lectura/escritura depende del ámbito del objeto: un editor del sitio no ve ni retira fotos de personal o de material; publicar exige autoridad del sitio; no se puede enlazar en una ficha una foto de otro apartado) |
+| Integridad de existencias | ✅ cubierto (no se acuñan existencias ni se registran bajas sin descontar cuando la fila de origen no existe: la operación se rechaza y no deja estado parcial) |
+| Idempotencia | ✅ cubierto (una operación fallida libera la clave para poder reintentarse; la respuesta de una clave no se re-entrega a otro titular) |
+| Auditoría de personal y catálogo | ✅ cubierto (cada mutación de personal y de sus catálogos deja su fila en `audit_log`) |
+| Límites | ✅ cubierto (tope de cuerpo medido con `content-type` estricto, tope de fotos por galería, cuota agregada del almacén, acotado del `user-agent` y limpieza programada de datos caducados) |
+| Endurecimiento del ingreso | ✅ cubierto (rechazo de login desde otro origen, respuestas indistinguibles para cuentas inexistentes/desactivadas/bloqueadas, límite al adivinar el token de inicialización y respaldo de IP solo en desarrollo) |
 | Actas imprimibles | ✅ cubierto (el acta de entrega documenta la entrega **completa** aunque haya devoluciones parciales, con el membrete de la institución; la de baja lleva motivo, quién autoriza y la condición anterior; `404` si no existe) |
 | Icono del sitio | ✅ cubierto (se sirve desde el escudo configurado, `404` si no hay ninguno y `404` si el escudo es privado) |
 | Foto de portada | ✅ cubierto (se publica solo si el objeto es público; una portada privada no se expone) |
