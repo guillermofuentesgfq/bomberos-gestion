@@ -21,7 +21,18 @@ abuso automatizado.
   procedimiento de inicialización protegido por un token de un solo uso
   (`BOOTSTRAP_TOKEN`), que debe retirarse tras el alta.
 - Hash resistente (PBKDF2-SHA256 con sal única por usuario y un *pepper*
-  secreto). Parámetros almacenados junto al hash para poder migrarlos.
+  secreto). Parámetros almacenados junto al hash para poder migrarlos, así que
+  cambiarlos no invalida las contraseñas existentes.
+  - **100 000 iteraciones**, que es el máximo que admite el runtime de Cloudflare
+    (rechaza cualquier cifra superior). Queda por debajo de la recomendación de
+    OWASP de 600 000 porque la plataforma no lo permite; lo compensan el
+    *pepper* —un secreto que vive en el Worker, no en la base, así que un volcado
+    de datos no basta para atacar los hashes—, el mínimo de 12 caracteres, el
+    bloqueo temporal y el límite por IP.
+  - **Coste medido:** unos 5 ms de CPU por acceso. En el plan gratuito de
+    Workers el tope es de 10 ms por petición, así que el acceso va justo; si un
+    despliegue devuelve el error 1102 (límite de CPU), la salida es el plan de
+    pago o bajar la cifra, **nunca subirla**.
 - Sesiones **opacas** con caducidad y revocación. Solo se guarda el **hash** del
   token; nunca el token en claro.
 - Limitación de intentos y bloqueo temporal por cuenta/IP.

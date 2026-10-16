@@ -129,6 +129,23 @@ Estas ya han costado tiempo. Si vas a tocar alguna de estas zonas, léelas antes
   `transition-[translate,opacity]`.
 - **Respeta `prefers-reduced-motion`** y anima solo `transform` y `opacity`.
 
+### Límites de la plataforma (no los aplica el entorno local)
+
+Las pruebas corren en `workerd` con Miniflare, que **no** impone los topes de
+producción de Cloudflare. Un valor que acepta en local puede ser rechazado en el
+despliegue real, y ya ocurrió: 210 000 iteraciones de PBKDF2 pasaban la suite y
+el primer despliegue falló al crear el administrador.
+
+- **No confíes en la suite para esto.** Comprueba cualquier límite nuevo en un
+  despliegue de verdad y fija el valor como contrato en
+  `tests/platform-limits.test.ts`.
+- Los que ya están cubiertos: iteraciones de PBKDF2 (≤ 100 000), parámetros por
+  consulta D1 (100; se consulta en tandas de 90), bytes de un patrón `LIKE` (50;
+  el término se recorta), consultas por invocación y CPU por plan. La tabla
+  completa está en `docs/ARCHITECTURE.md`.
+- **Con plan gratuito, el acceso va justo de CPU** (10 ms por petición y PBKDF2
+  cuesta unos 5 ms): no añadas trabajo costoso a las rutas de autenticación.
+
 ### Pruebas
 
 - **El helper `ApiClient` añade el token CSRF en `post`/`put`/`del`, pero no en

@@ -32,13 +32,19 @@ export interface BootstrapInput {
   displayName: string | null;
   token: string;
   ipHash: string | null;
+  userAgent: string | null;
 }
 
 /**
  * Inicializa el primer administrador. Solo funciona si no existe ningún
  * usuario y el token de arranque coincide.
+ *
+ * Devuelve la sesión ya abierta, sin volver a derivar la contraseña que acaba de
+ * hashear: el asistente dejaba la sesión iniciada llamando a `login()`, que
+ * repetía el cálculo de PBKDF2 (~5 ms) y acercaba la petición al límite de CPU
+ * del plan gratuito de Workers (10 ms).
  */
-export async function bootstrapAdmin(env: Env, input: BootstrapInput): Promise<number> {
+export async function bootstrapAdmin(env: Env, input: BootstrapInput): Promise<LoginResult> {
   if (!env.BOOTSTRAP_TOKEN) {
     throw AppError.forbidden('La inicialización no está habilitada en este entorno.');
   }
@@ -87,7 +93,17 @@ export async function bootstrapAdmin(env: Env, input: BootstrapInput): Promise<n
     ipHash: input.ipHash,
   });
 
-  return userId;
+  // La sesión se abre sin volver a derivar la contraseña: se acaba de hashear.
+  return startSession(
+    env,
+    {
+      id: userId,
+      username: input.username,
+      display_name: input.displayName,
+      must_change_password: 0,
+    },
+    { ipHash: input.ipHash, userAgent: input.userAgent },
+  );
 }
 
 export interface LoginInput {
@@ -163,6 +179,35 @@ export async function login(env: Env, input: LoginInput): Promise<LoginResult> {
 
   await users.markLoginSuccess(db, account.id);
   await users.recordLoginAttempt(db, account.username, input.ipHash, true);
+
+  return startSession(env, account, {
+    ipHash: input.ipHash,
+    userAgent: input.userAgent,
+  });
+}
+
+/**
+ * Abre la sesión de una cuenta **ya autenticada**: marca el acceso como
+ * correcto, crea la sesión y reúne roles y permisos.
+ *
+ * Está separado de `login()` para que el asistente de arranque pueda usarlo
+ * después de crear el administrador **sin volver a derivar** la contraseña que
+ * acaba de hashear. El coste de PBKDF2 (unos 5 ms con 100 000 iteraciones) es el
+ * grueso del trabajo de una petición de acceso y el plan gratuito de Workers
+ * concede 10 ms de CPU: dos derivaciones en la misma petición no caben con
+ * holgura.
+ */
+export async function startSession(
+  env: Env,
+  account: {
+    id: number;
+    username: string;
+    display_name: string | null;
+    must_change_password: number;
+  },
+  input: { ipHash: string | null; userAgent: string | null },
+): Promise<LoginResult> {
+  const db = env.DB;
 
   const session = await createSession(db, account.id, input.userAgent, input.ipHash);
   const [roles, permissions] = await Promise.all([

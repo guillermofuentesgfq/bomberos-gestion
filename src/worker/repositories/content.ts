@@ -145,6 +145,14 @@ export interface ObjectSummaryRow {
   is_public: number;
 }
 
+/**
+ * Parámetros por consulta. D1 impone un máximo de 100 y se deja margen; hay que
+ * trocear porque el runtime local de las pruebas **no** aplica ese tope, así que
+ * sin trocear esto pasaría la suite y fallaría en producción con un sitio que
+ * tenga muchas páginas, noticias y actividades.
+ */
+const MAX_BOUND_PARAMS_PER_QUERY = 90;
+
 /** Resúmenes de objetos por id; ignora ids no válidos o archivados. */
 export async function listObjectSummaries(
   db: D1Database,
@@ -154,14 +162,22 @@ export async function listObjectSummaries(
     (value): value is number => typeof value === 'number' && Number.isInteger(value) && value > 0,
   );
   if (unique.length === 0) return [];
-  const placeholders = unique.map(() => '?').join(', ');
-  return all<ObjectSummaryRow>(
-    db,
-    `SELECT id, content_type, width, height, alt_text, caption, is_public
-       FROM storage_objects
-      WHERE archived_at IS NULL AND id IN (${placeholders})`,
-    ...unique,
-  );
+
+  const rows: ObjectSummaryRow[] = [];
+  for (let index = 0; index < unique.length; index += MAX_BOUND_PARAMS_PER_QUERY) {
+    const chunk = unique.slice(index, index + MAX_BOUND_PARAMS_PER_QUERY);
+    const placeholders = chunk.map(() => '?').join(', ');
+    rows.push(
+      ...(await all<ObjectSummaryRow>(
+        db,
+        `SELECT id, content_type, width, height, alt_text, caption, is_public
+           FROM storage_objects
+          WHERE archived_at IS NULL AND id IN (${placeholders})`,
+        ...chunk,
+      )),
+    );
+  }
+  return rows;
 }
 
 // ---------------------------------------------------------------------------

@@ -79,20 +79,17 @@ authRoutes.get('/status', async (c) => {
 /** Inicializa el primer administrador y deja la sesión iniciada. */
 authRoutes.post('/setup', requireSameOrigin, async (c) => {
   const body = await readJson(c, setupSchema);
-  await bootstrapAdmin(c.env, {
+  // Devuelve la sesión ya abierta, sin volver a derivar la contraseña que se
+  // acaba de hashear (el coste de PBKDF2 es el grueso de la petición).
+  const result = await bootstrapAdmin(c.env, {
     username: body.username,
     password: body.password,
     displayName: body.displayName ?? null,
     token: body.token,
     ipHash: c.get('ipHash'),
-  });
-
-  const result = await login(c.env, {
-    username: body.username,
-    password: body.password,
-    ipHash: c.get('ipHash'),
     userAgent: c.req.header('user-agent') ?? null,
   });
+
   issueSessionCookie(c, result.session.cookieValue, cookiesAreSecure(c.env));
   return ok(
     c,

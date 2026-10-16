@@ -7,6 +7,41 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.1.2] - 2026-10-16
+
+Corrige el fallo que impedía terminar la puesta en marcha de una instalación
+real: **no se podía crear el primer administrador**.
+
+### Corregido
+
+- **Las contraseñas se cifraban con 210 000 iteraciones de PBKDF2 y Cloudflare
+  admite 100 000 como máximo** (`Pbkdf2 failed: iteration counts above 100000 are
+  not supported`). El runtime local de las pruebas no aplica ese tope, así que
+  las 176 pruebas pasaban y el fallo aparecía en el primer despliegue de verdad,
+  al usar el asistente. Ahora se usan 100 000, el máximo permitido, y hay una
+  prueba de contrato que impide volver a subirlo sin comprobarlo en producción.
+- **El asistente de arranque ya no deriva la contraseña dos veces.** Creaba el
+  administrador (una derivación) y después llamaba al ingreso, que la verificaba
+  (otra): unas dos veces 5 ms de CPU en la misma petición, cuando el plan
+  gratuito concede 10 ms. Ahora abre la sesión directamente.
+- **`listObjectSummaries` trocea la consulta.** Construía un `IN (...)` con una
+  posición por imagen (todas las páginas, noticias y actividades del sitio) y D1
+  admite 100 parámetros por consulta; con un sitio con contenido habría fallado
+  en producción aunque en local funcionara.
+- **Los patrones `LIKE` de la búsqueda se recortan a 50 bytes**, que es el tope
+  que D1 admite, sin partir caracteres y sin dejar una barra de escape suelta.
+  Antes se permitían términos de 120 caracteres.
+
+### Notas
+
+- Se documenta la clase de fallo en `docs/ARCHITECTURE.md` («Límites que las
+  pruebas locales **no** aplican»), en `CONTRIBUTING.md` y en `SECURITY.md`, con
+  los límites verificados en la documentación de Cloudflare (Workers y D1) y el
+  coste medido de PBKDF2.
+- **Aviso de plan:** con el plan gratuito el acceso va justo de CPU (10 ms por
+  petición, ~5 ms por derivación). Si un despliegue devuelve el error 1102, la
+  salida es el plan de pago o bajar las iteraciones, nunca subirlas.
+
 ## [0.1.1] - 2026-10-16
 
 ### Corregido

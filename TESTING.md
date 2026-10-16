@@ -23,8 +23,8 @@ prueba, conservando las tablas de referencia.
 ## Estado actual (real)
 
 ```
-Test Files  15 passed (15)
-     Tests  176 passed (176)
+Test Files  16 passed (16)
+     Tests  180 passed (180)
 ```
 
 | Archivo | Qué cubre |
@@ -42,6 +42,7 @@ Test Files  15 passed (15)
 | `tests/files.test.ts` | privacidad de archivos y rechazo de contenido activo |
 | `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo (contenido y textos institucionales)** |
 | `tests/document.test.ts` | el documento de la SPA se sirve desde el Worker con las cabeceras de seguridad y el respaldo de rutas de cliente funciona |
+| `tests/platform-limits.test.ts` | **límites de la plataforma que el entorno local no aplica** (tope de PBKDF2, parámetros por consulta y bytes de un patrón `LIKE` de D1, y troceado de consultas), con los valores fijados como contrato |
 | `tests/maintenance.test.ts` | limpieza programada (sesiones, intentos de ingreso y reservas de idempotencia caducadas) y acotado del `user-agent` |
 | `tests/users.test.ts` | alta, edición, roles, contraseña temporal, desbloqueo y archivado de usuarios; **protecciones para no quedarse sin administrador** y control de permisos |
 

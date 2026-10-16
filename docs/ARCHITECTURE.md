@@ -171,6 +171,29 @@ El diseño respeta las cuotas gratuitas (verificadas en octubre de 2026):
 Consecuencias: agrupar consultas con `batch`, indexar las columnas filtradas y
 evitar `SELECT *` (cuenta filas escaneadas).
 
+### Límites que las pruebas locales **no** aplican
+
+Las pruebas corren en `workerd` con Miniflare, que **no** impone los topes de
+producción. Un valor que el runtime local acepta puede ser rechazado por
+Cloudflare, y eso ya pasó una vez: las contraseñas se cifraban con 210 000
+iteraciones de PBKDF2, las 180 pruebas pasaban y el primer despliegue real falló
+al crear el administrador.
+
+| Límite | Producción | Cómo se respeta |
+|---|---|---|
+| Iteraciones de PBKDF2 | ≤ 100 000 | `PASSWORD_ITERATIONS` y su prueba de contrato |
+| Parámetros por consulta D1 | 100 | Las listas de identificadores se consultan en tandas de 90 |
+| Bytes de un patrón `LIKE` o `GLOB` | 50 | El término se recorta por bytes (sin partir caracteres) antes de envolverlo en `%` |
+| Consultas D1 por invocación | 50 (plan gratuito) / 1000 (de pago) | Se agrupan con `batch`; **una galería con muchas fotos se acerca al tope del plan gratuito** |
+| CPU por petición | 10 ms (plan gratuito) / 30 s (de pago) | Lo caro es el acceso (PBKDF2, unos 5 ms), por eso el asistente no vuelve a derivar la contraseña, y los informes grandes |
+
+Regla para quien contribuya: **un límite de la plataforma se comprueba en un
+despliegue de verdad, no solo en local**, y se fija como contrato en
+`tests/platform-limits.test.ts` para que no se rompa en silencio. Los valores
+completos están en la documentación de Cloudflare
+([Workers](https://developers.cloudflare.com/workers/platform/limits/) y
+[D1](https://developers.cloudflare.com/d1/platform/limits/)).
+
 ## Entornos
 
 | Entorno | API | SPA |
