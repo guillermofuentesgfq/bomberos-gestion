@@ -48,9 +48,8 @@ function ErrorState({ message }: { message: string }) {
 export function NotFoundContent({ message = 'El contenido que buscas no existe o no está publicado.' }: { message?: string }) {
   return (
     <Container className={READING_CONTAINER}>
-      <p className="text-sm font-semibold tracking-widest text-ink-muted uppercase">Error 404</p>
-      <h1 className="mt-2 text-3xl font-bold text-ink">Contenido no disponible</h1>
-      <p className="mt-3 max-w-[60ch] text-lg text-ink-muted">{message}</p>
+      <h1 className="text-3xl font-bold text-balance text-ink">Contenido no disponible</h1>
+      <p className="mt-3 max-w-[60ch] text-lg text-pretty text-ink-muted">{message}</p>
       <p className="mt-6">
         <AppLink
           to="/"
@@ -79,13 +78,11 @@ function useInstitutionName(): string {
 }
 
 function PageHeading({
-  eyebrow,
   title,
   intro,
   backTo,
   backLabel,
 }: {
-  eyebrow: string;
   title: string;
   intro?: string | undefined;
   backTo?: string | undefined;
@@ -103,9 +100,10 @@ function PageHeading({
           </AppLink>
         </p>
       ) : null}
-      <p className="text-sm font-semibold tracking-widest text-ink-muted uppercase">{eyebrow}</p>
-      <h1 className="mt-2 text-3xl leading-tight font-bold text-ink sm:text-4xl">{title}</h1>
-      {intro ? <p className="mt-3 max-w-[65ch] text-lg text-ink-muted">{intro}</p> : null}
+      <h1 className="text-3xl leading-tight font-bold text-balance text-ink sm:text-4xl">
+        {title}
+      </h1>
+      {intro ? <p className="mt-3 max-w-[65ch] text-lg text-pretty text-ink-muted">{intro}</p> : null}
     </header>
   );
 }
@@ -131,7 +129,6 @@ export function NewsListPage() {
   return (
     <Container className={READING_CONTAINER}>
       <PageHeading
-        eyebrow="Actualidad"
         title="Noticias"
         intro="Comunicados, emergencias y novedades de la institución."
       />
@@ -202,7 +199,6 @@ export function NewsDetailPage({ slug }: { slug: string }) {
   return (
     <Container className={READING_CONTAINER}>
       <PageHeading
-        eyebrow="Noticia"
         title={item.title}
         backTo="/noticias"
         backLabel="Todas las noticias"
@@ -243,7 +239,6 @@ export function ActivityListPage() {
   return (
     <Container className={READING_CONTAINER}>
       <PageHeading
-        eyebrow="Agenda"
         title="Actividades"
         intro="Actividades, eventos y actividades comunitarias de la institución."
       />
@@ -322,7 +317,6 @@ export function ActivityDetailPage({ slug }: { slug: string }) {
   return (
     <Container className={READING_CONTAINER}>
       <PageHeading
-        eyebrow="Actividad"
         title={item.title}
         backTo="/actividades"
         backLabel="Todas las actividades"
@@ -376,7 +370,6 @@ export function GalleryListPage() {
   return (
     <Container className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <PageHeading
-        eyebrow="Memoria visual"
         title="Galerías"
         intro="Registro fotográfico de la actividad institucional."
       />
@@ -446,7 +439,6 @@ export function GalleryDetailPage({ slug }: { slug: string }) {
   return (
     <Container className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <PageHeading
-        eyebrow="Galería"
         title={gallery.title}
         intro={gallery.description ?? undefined}
         backTo="/galerias"
@@ -501,7 +493,7 @@ export function ContentPage({ slug }: { slug: string }) {
 
   return (
     <Container className={READING_CONTAINER}>
-      <PageHeading eyebrow={institutionName} title={page.title} intro={page.excerpt ?? undefined} />
+      <PageHeading title={page.title} intro={page.excerpt ?? undefined} />
       {page.hero ? (
         <img
           src={page.hero.url}

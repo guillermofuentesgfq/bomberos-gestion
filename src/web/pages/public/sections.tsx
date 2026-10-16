@@ -136,21 +136,21 @@ function GalleryCard({ item }: { item: PublicGallerySummary }) {
 /** Mensaje de estado vacío cuando la institución aún no publica contenido. */
 export function EmptySite() {
   return (
-    <Container className="mx-auto flex w-full max-w-3xl flex-col items-start gap-4 px-4 py-24 sm:px-6 lg:px-8">
-      <p className="text-sm font-semibold tracking-widest text-ink-muted uppercase">
-        Sitio institucional
-      </p>
-      <h1 className="text-3xl leading-tight font-bold text-ink sm:text-4xl">
+    <Container className="mx-auto flex w-full max-w-3xl flex-col items-start gap-5 px-4 py-24 sm:px-6 lg:px-8">
+      <h1 className="text-4xl leading-tight font-bold text-balance text-ink sm:text-5xl">
         Sitio en preparación
       </h1>
-      <p className="max-w-[60ch] text-lg text-ink-muted">
+      <p className="max-w-[60ch] text-lg text-pretty text-ink-muted">
         Esta institución todavía no ha publicado su información. Cuando el equipo
         complete la configuración institucional y publique contenido, aparecerá aquí.
       </p>
       <p className="text-base text-ink-muted">
-        Si eres parte del cuerpo, puedes ingresar al{' '}
-        <AppLink to="/admin" className="font-semibold text-accent-strong underline underline-offset-2">
-          panel administrativo
+        Si eres parte del cuerpo, puedes{' '}
+        <AppLink
+          to="/admin"
+          className="font-semibold text-accent-strong underline underline-offset-2"
+        >
+          entrar al panel administrativo
         </AppLink>{' '}
         para configurarlo.
       </p>
@@ -170,14 +170,16 @@ function HeroSection() {
       <Container>
         <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex max-w-[65ch] flex-col gap-5">
+            <h1 className="text-4xl leading-tight font-bold text-balance text-ink sm:text-5xl">
+              {name}
+            </h1>
             {institution.number ? (
-              <p className="text-sm font-semibold tracking-widest text-brand uppercase">
+              <p className="inline-flex w-fit items-center rounded-md border border-brand bg-brand/5 px-2.5 py-1 text-sm font-semibold text-brand">
                 {institution.number}
               </p>
             ) : null}
-            <h1 className="text-4xl leading-tight font-bold text-ink sm:text-5xl">{name}</h1>
             {institution.description ? (
-              <p className="text-lg text-ink-muted">{institution.description}</p>
+              <p className="text-lg text-pretty text-ink-muted">{institution.description}</p>
             ) : null}
             <div className="flex flex-wrap gap-3">
               <AppLink
@@ -418,7 +420,7 @@ function ContactSection() {
           ) : null}
           {institution.phones.length > 0 ? (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold tracking-wide text-ink-muted uppercase">
+              <p className="text-sm font-semibold text-ink-muted">
                 Teléfonos
               </p>
               <ul className="flex flex-col gap-1">
@@ -437,7 +439,7 @@ function ContactSection() {
           ) : null}
           {institution.emails.length > 0 ? (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold tracking-wide text-ink-muted uppercase">
+              <p className="text-sm font-semibold text-ink-muted">
                 Correos
               </p>
               <ul className="flex flex-col gap-1">
@@ -456,7 +458,7 @@ function ContactSection() {
           ) : null}
           {institution.socials.length > 0 ? (
             <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold tracking-wide text-ink-muted uppercase">
+              <p className="text-sm font-semibold text-ink-muted">
                 Redes sociales
               </p>
               <ul className="flex flex-wrap gap-x-5 gap-y-1">
@@ -478,7 +480,7 @@ function ContactSection() {
         </div>
 
         <div className="flex flex-col justify-start gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-6 shadow-sm">
-          <p className="text-sm font-semibold tracking-wide text-ink-muted uppercase">
+          <p className="text-sm font-semibold text-ink-muted">
             Emergencias
           </p>
           {institution.emergencyNumber ? (

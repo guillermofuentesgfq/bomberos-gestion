@@ -105,9 +105,30 @@ html {
 
 body {
   margin: 0;
+  min-height: 100dvh;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+/*
+ * Los titulares se equilibran para evitar líneas huérfanas; los párrafos usan
+ * `pretty` para evitar palabras sueltas al final. Ambas son mejoras
+ * progresivas: si el navegador no las soporta, el texto fluye igual.
+ */
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background-color: var(--brand-primary);
+  color: #ffffff;
 }
 
 /* Foco visible siempre: nunca se elimina el outline sin sustituto. */

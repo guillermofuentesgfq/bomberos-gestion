@@ -137,7 +137,6 @@ export function SetupPage() {
       className="mx-auto flex min-h-dvh w-full max-w-lg flex-col justify-center gap-6 p-6"
     >
       <PageHeader
-        eyebrow="Primera configuración"
         title="Crear administrador"
         description="Esta instalación todavía no tiene usuarios. Crea la cuenta de administración inicial."
       />

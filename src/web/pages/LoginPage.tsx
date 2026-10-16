@@ -57,7 +57,6 @@ export function LoginPage() {
       className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-6 p-6"
     >
       <PageHeader
-        eyebrow="Sistema de Gestión"
         title="Iniciar sesión"
         description="Accede con tu cuenta institucional para gestionar inventario y personal."
       />

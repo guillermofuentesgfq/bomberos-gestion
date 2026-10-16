@@ -180,7 +180,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold tracking-wide text-ink uppercase">Contacto</p>
+          <h2 className="text-base font-bold text-ink">Contacto</h2>
           {institution.emergencyNumber ? (
             <p className="text-base text-ink">
               Emergencias:{' '}
@@ -226,7 +226,7 @@ export function SiteFooter() {
         </div>
 
         <div className="flex flex-col gap-3">
-          <p className="text-sm font-bold tracking-wide text-ink uppercase">Institución</p>
+          <h2 className="text-base font-bold text-ink">Institución</h2>
           <ul className="flex flex-col gap-1">
             <li>
               <AppLink to="/noticias" className="text-sm text-ink hover:text-accent-strong">

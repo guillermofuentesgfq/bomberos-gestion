@@ -1,9 +1,19 @@
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { SessionProvider, useSession } from './lib/session';
 import { RouterProvider, useRoute } from './lib/router';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { PublicApp } from './pages/public/PublicApp';
+import {
+  AdminLayout,
+  ContentAdminPage,
+  InventoryPage,
+  MovementsPage,
+  PersonDetailPage,
+  PersonsPage,
+} from './admin';
 
 /** Enlace para saltar al contenido principal con el teclado. */
 function SkipLink() {
@@ -22,10 +32,65 @@ function LoadingScreen() {
       aria-busy="true"
       className="mx-auto flex min-h-dvh w-full max-w-md items-center justify-center p-6"
     >
-      <p role="status" className="text-base text-ink-muted">
+      <p role="status" className="text-lg text-ink-muted">
         Cargando…
       </p>
     </main>
+  );
+}
+
+/** Normaliza `/panel…` a `/admin…` para que la navegación marque la sección. */
+function normalizeAdminPath(path: string): string {
+  const clean = path.split('?')[0] ?? path;
+  if (clean === '/panel' || clean === '/admin') return '/admin/inventario';
+  if (clean.startsWith('/panel/')) return `/admin/${clean.slice('/panel/'.length)}`;
+  return clean;
+}
+
+/** Panel administrativo con su shell de navegación. */
+function AdminPanel() {
+  const { user, csrfToken, logout } = useSession();
+  const { path } = useRoute();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  if (!user || !csrfToken) return null;
+
+  const currentPath = normalizeAdminPath(path);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  const personMatch = /^\/admin\/personas\/(\d+)$/.exec(currentPath);
+  const personId = personMatch?.[1] ? Number(personMatch[1]) : null;
+
+  let content: ReactNode;
+  if (personId !== null) {
+    content = <PersonDetailPage csrfToken={csrfToken} personId={personId} />;
+  } else if (currentPath === '/admin/personas') {
+    content = <PersonsPage csrfToken={csrfToken} />;
+  } else if (currentPath === '/admin/movimientos') {
+    content = <MovementsPage />;
+  } else if (currentPath === '/admin/contenido') {
+    content = <ContentAdminPage csrfToken={csrfToken} />;
+  } else {
+    content = <InventoryPage csrfToken={csrfToken} />;
+  }
+
+  return (
+    <AdminLayout
+      user={{ username: user.username, displayName: user.displayName, roles: user.roles }}
+      csrfToken={csrfToken}
+      onLogout={handleLogout}
+      currentPath={currentPath}
+    >
+      {loggingOut ? <p role="status" className="text-lg text-ink-muted">Cerrando sesión…</p> : content}
+    </AdminLayout>
   );
 }
 
@@ -36,7 +101,10 @@ function SessionGate() {
   if (status === 'loading') return <LoadingScreen />;
   if (needsSetup) return <SetupPage />;
   if (!user) return <LoginPage />;
-  return <DashboardPage />;
+  // Si la cuenta debe cambiar la contraseña, la API bloquea el resto: se atiende
+  // ese paso antes de entrar al panel.
+  if (user.mustChangePassword) return <DashboardPage />;
+  return <AdminPanel />;
 }
 
 /** Rutas que pertenecen al panel administrativo. */
