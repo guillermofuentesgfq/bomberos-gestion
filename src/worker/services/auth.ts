@@ -42,7 +42,19 @@ export async function bootstrapAdmin(env: Env, input: BootstrapInput): Promise<n
   if (!env.BOOTSTRAP_TOKEN) {
     throw AppError.forbidden('La inicialización no está habilitada en este entorno.');
   }
+
+  // Misma limitación que el ingreso: sin ella, el token de arranque se podía
+  // adivinar sin tope en una instalación recién desplegada.
+  const since = addSeconds(nowIso(), -WINDOW_SECONDS);
+  if (input.ipHash) {
+    const ipFailures = await users.recentFailuresForIp(env.DB, input.ipHash, since);
+    if (ipFailures >= MAX_FAILED_ATTEMPTS * 4) {
+      throw AppError.tooManyRequests('Demasiados intentos desde esta conexión.');
+    }
+  }
+
   if (!constantTimeEqual(input.token, env.BOOTSTRAP_TOKEN)) {
+    await users.recordLoginAttempt(env.DB, input.username, input.ipHash, false);
     throw AppError.forbidden('Token de inicialización inválido.');
   }
   if (!(await needsSetup(env.DB))) {
@@ -114,19 +126,21 @@ export async function login(env: Env, input: LoginInput): Promise<LoginResult> {
     throw AppError.unauthorized('Usuario o contraseña incorrectos.');
   }
 
-  if (account.locked_until && !isPast(account.locked_until)) {
-    throw AppError.tooManyRequests('La cuenta está bloqueada temporalmente.');
-  }
-  if (account.is_active !== 1) {
-    throw AppError.forbidden('La cuenta está desactivada.');
-  }
-
+  // La contraseña se verifica **antes** de revelar el estado de la cuenta: si el
+  // bloqueo o la desactivación se comprobaran antes, un 429 o un 403 distintos
+  // del 401 permitirían descubrir qué nombres de usuario existen sin conocer la
+  // contraseña.
   const ok = await verifyPassword(input.password, account, requirePepper(env));
   if (!ok) {
-    const failures = account.failed_attempts + 1;
-    const lockUntil =
-      failures >= MAX_FAILED_ATTEMPTS ? addSeconds(nowIso(), LOCK_SECONDS) : null;
-    await users.registerFailure(db, account.id, lockUntil);
+    // Un bloqueo vigente no se cuenta ni se acorta: los intentos durante el
+    // bloqueo no alimentan el contador (si no, un fallo más lo reabriría).
+    const wasLocked = account.locked_until !== null && !isPast(account.locked_until);
+    if (!wasLocked) {
+      const failures = account.failed_attempts + 1;
+      const lockUntil =
+        failures >= MAX_FAILED_ATTEMPTS ? addSeconds(nowIso(), LOCK_SECONDS) : null;
+      await users.registerFailure(db, account.id, lockUntil);
+    }
     await users.recordLoginAttempt(db, account.username, input.ipHash, false);
     await logAudit(db, {
       actorUserId: account.id,
@@ -134,10 +148,17 @@ export async function login(env: Env, input: LoginInput): Promise<LoginResult> {
       action: 'auth.login_failed',
       entityType: 'user',
       entityId: account.id,
-      detail: { failures },
+      detail: { locked: wasLocked },
       ipHash: input.ipHash,
     });
     throw AppError.unauthorized('Usuario o contraseña incorrectos.');
+  }
+
+  if (account.locked_until && !isPast(account.locked_until)) {
+    throw AppError.tooManyRequests('La cuenta está bloqueada temporalmente.');
+  }
+  if (account.is_active !== 1) {
+    throw AppError.forbidden('La cuenta está desactivada.');
   }
 
   await users.markLoginSuccess(db, account.id);

@@ -88,3 +88,38 @@ export const requireCsrf = createMiddleware<AppEnv>(async (c, next) => {
   }
   await next();
 });
+
+/**
+ * Defensa pre-sesión: exige que la petición venga del mismo sitio.
+ *
+ * Las mutaciones que no llevan sesión (iniciar sesión y la inicialización) no
+ * pueden protegerse con CSRF porque no hay token todavía, y `SameSite` restringe
+ * el **envío** de la cookie pero no su **fijación** por `Set-Cookie`: un
+ * formulario de otro sitio podría iniciar sesión en el navegador de la víctima
+ * (login CSRF) y dejarla operando bajo la cuenta del atacante. Se comprueba el
+ * origen con las dos cabeceras que el navegador envía en estos casos.
+ *
+ * Las herramientas de línea de comandos no mandan ninguna de las dos y se
+ * admiten: no son un navegador con credenciales ambientales.
+ */
+export const requireSameOrigin = createMiddleware<AppEnv>(async (c, next) => {
+  const origin = c.req.header('origin');
+  if (origin !== undefined) {
+    let originHost: string | null = null;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      originHost = null;
+    }
+    if (originHost === null || originHost !== new URL(c.req.url).host) {
+      throw AppError.forbidden('La petición debe venir del mismo sitio.');
+    }
+  }
+
+  const fetchSite = c.req.header('sec-fetch-site');
+  if (fetchSite !== undefined && fetchSite !== 'same-origin' && fetchSite !== 'none') {
+    throw AppError.forbidden('La petición debe venir del mismo sitio.');
+  }
+
+  await next();
+});

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { env, SELF } from 'cloudflare:test';
-import { ApiClient, countRows, seedUser } from './helpers';
+import { hmacSha256Hex } from '../src/worker/lib/crypto';
+import { ApiClient, BASE, countRows, seedUser } from './helpers';
 
 describe('autenticación, sesiones y autorización', () => {
   it('la instalación recién creada pide inicialización', async () => {
@@ -172,5 +173,100 @@ describe('autenticación, sesiones y autorización', () => {
       newPassword: 'NuevaContrasena123',
     });
     expect(ok.status).toBe(200);
+  });
+
+  it('rechaza un inicio de sesión desde otro origen (login CSRF)', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+
+    // Un formulario de otro sitio no puede fijar la sesión del atacante en el
+    // navegador de la víctima.
+    const crossSite = await api.request('POST', '/api/v1/auth/login', {
+      body: { username: 'admin', password: 'ContrasenaAdmin123' },
+      headers: { origin: 'https://evil.example' },
+    });
+    expect(crossSite.status).toBe(403);
+
+    const crossSiteFetch = await api.request('POST', '/api/v1/auth/login', {
+      body: { username: 'admin', password: 'ContrasenaAdmin123' },
+      headers: { 'sec-fetch-site': 'cross-site' },
+    });
+    expect(crossSiteFetch.status).toBe(403);
+
+    // La aplicación (mismo origen) entra sin problema.
+    const sameSite = await api.request('POST', '/api/v1/auth/login', {
+      body: { username: 'admin', password: 'ContrasenaAdmin123' },
+      headers: { origin: BASE },
+    });
+    expect(sameSite.status).toBe(200);
+  });
+
+  it('no revela qué cuentas existen a quien no acierta la contraseña', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+
+    const inactiveId = await seedUser('inactivo', 'ContrasenaLarga123', 'viewer');
+    await env.DB.prepare(`UPDATE users SET is_active = 0 WHERE id = ?`).bind(inactiveId).run();
+
+    const lockedId = await seedUser('bloqueado', 'ContrasenaLarga123', 'viewer');
+    await env.DB.prepare(`UPDATE users SET locked_until = ? WHERE id = ?`)
+      .bind(new Date(Date.now() + 600_000).toISOString().replace(/\.\d{3}Z$/, 'Z'), lockedId)
+      .run();
+
+    // Con la contraseña equivocada, los tres casos son indistinguibles (401).
+    expect(await api.login('inactivo', 'ClaveEquivocada123')).toBe(401);
+    expect(await api.login('bloqueado', 'ClaveEquivocada123')).toBe(401);
+    expect(await api.login('no-existe', 'ClaveEquivocada123')).toBe(401);
+
+    // Y con la contraseña correcta el estado sí se informa al titular.
+    expect(await api.login('bloqueado', 'ContrasenaLarga123')).toBe(429);
+    expect(await api.login('inactivo', 'ContrasenaLarga123')).toBe(403);
+  });
+
+  it('limita los intentos de adivinar el token de inicialización', async () => {
+    const api = new ApiClient();
+
+    // 20 intentos fallidos con token errado…
+    for (let i = 0; i < 20; i += 1) {
+      const attempt = await api.request('POST', '/api/v1/auth/setup', {
+        body: { token: `token-errado-${i}`, username: 'admin', password: 'ContrasenaAdmin123' },
+      });
+      expect(attempt.status).toBe(403);
+    }
+
+    // …y el siguiente ya no se atiende.
+    const blocked = await api.request('POST', '/api/v1/auth/setup', {
+      body: { token: 'token-errado-final', username: 'admin', password: 'ContrasenaAdmin123' },
+    });
+    expect(blocked.status).toBe(429);
+  });
+
+  it('en producción no acepta como IP una cabecera que el cliente puede falsificar', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+
+    const mutable = env as unknown as { APP_ENV: string; AUTH_SESSION_SECRET: string };
+    const original = mutable.APP_ENV;
+    mutable.APP_ENV = 'production';
+    try {
+      const before = await countRows(
+        'sessions',
+        'ip_hash = ?',
+        await hmacSha256Hex(mutable.AUTH_SESSION_SECRET, 'ip:unknown'),
+      );
+
+      const response = await api.request('POST', '/api/v1/auth/login', {
+        body: { username: 'admin', password: 'ContrasenaAdmin123' },
+        headers: { 'x-forwarded-for': '203.0.113.9' },
+      });
+      expect(response.status).toBe(200);
+
+      const spoofed = await hmacSha256Hex(mutable.AUTH_SESSION_SECRET, 'ip:203.0.113.9');
+      const unknown = await hmacSha256Hex(mutable.AUTH_SESSION_SECRET, 'ip:unknown');
+      expect(await countRows('sessions', 'ip_hash = ?', spoofed)).toBe(0);
+      expect(await countRows('sessions', 'ip_hash = ?', unknown)).toBe(before + 1);
+    } finally {
+      mutable.APP_ENV = original;
+    }
   });
 });

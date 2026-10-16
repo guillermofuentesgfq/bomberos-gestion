@@ -5,7 +5,7 @@ import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { ok } from '../lib/http';
 import { readJson } from '../lib/validate';
-import { requireAuth, requireCsrf } from '../security/middleware';
+import { requireAuth, requireCsrf, requireSameOrigin } from '../security/middleware';
 import {
   SESSION_COOKIE,
   SESSION_TTL_SECONDS,
@@ -77,7 +77,7 @@ authRoutes.get('/status', async (c) => {
 });
 
 /** Inicializa el primer administrador y deja la sesión iniciada. */
-authRoutes.post('/setup', async (c) => {
+authRoutes.post('/setup', requireSameOrigin, async (c) => {
   const body = await readJson(c, setupSchema);
   await bootstrapAdmin(c.env, {
     username: body.username,
@@ -102,7 +102,7 @@ authRoutes.post('/setup', async (c) => {
 });
 
 /** Inicia sesión. */
-authRoutes.post('/login', async (c) => {
+authRoutes.post('/login', requireSameOrigin, async (c) => {
   const body = await readJson(c, loginSchema);
   const result = await login(c.env, {
     username: body.username,
