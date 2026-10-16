@@ -92,7 +92,7 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
   const [socials, setSocials] = useState('');
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<React.ReactNode>(null);
   const [blockError, setBlockError] = useState<string | null>(null);
 
   const [newLocation, setNewLocation] = useState('');
@@ -169,7 +169,20 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
         { title: seo.title, description: seo.description, allowIndexing: seo.allowIndexing },
         csrfToken,
       );
-      setNotice('La información institucional quedó guardada. Revisa el sitio público.');
+      setNotice(
+        <>
+          La información institucional quedó guardada.{' '}
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold underline underline-offset-2"
+          >
+            Ver el sitio público
+          </a>
+          . El sitio se actualiza en unos segundos.
+        </>,
+      );
     } catch (cause) {
       setBlockError(
         cause instanceof ApiError && cause.code === 'forbidden'

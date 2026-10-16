@@ -34,11 +34,14 @@ function readLimit(raw: string | undefined): number {
   return Math.min(Math.max(Math.trunc(parsed), 1), MAX_LIST_LIMIT);
 }
 
-/** Caché breve en el borde: el contenido cambia con poca frecuencia. */
+/**
+ * Caché breve en el borde: el contenido cambia con poca frecuencia, pero al
+ * configurar la institución conviene que los cambios se vean casi de inmediato.
+ */
 const publicCache = createMiddleware<AppEnv>(async (c, next) => {
   await next();
   if (c.res.status === 200) {
-    c.header('cache-control', 'public, max-age=60, stale-while-revalidate=60');
+    c.header('cache-control', 'public, max-age=10, stale-while-revalidate=60');
   }
 });
 
