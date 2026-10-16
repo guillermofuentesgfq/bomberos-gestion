@@ -1,0 +1,92 @@
+# ---------------------------------------------------------------------------
+# Despliegue de UNA institución · EJEMPLO
+#
+# Cópialo a `.github/workflows/deploy.yml` y ajusta `CONFIG` al nombre de tu
+# archivo de configuración. No lo dejes aquí: GitHub solo ejecuta los archivos
+# que están en `.github/workflows/`, y este directorio es una plantilla.
+#
+# Se despliega **al empujar un tag** `deploy/vX.Y.Z`, nunca al empujar a `main`:
+# así queda registrado, para siempre, qué versión está en producción. El tag
+# `vX.Y.Z` (sin el prefijo) es el release del proyecto; `deploy/vX.Y.Z` es la
+# decisión de poner ese release en esta institución.
+#
+# Requiere dos secretos del repositorio (Settings → Secrets and variables →
+# Actions), nunca escritos en el código:
+#   CLOUDFLARE_API_TOKEN   token de API con permisos Workers Scripts:Edit,
+#                          D1:Edit y R2:Edit para la cuenta de la institución
+#   CLOUDFLARE_ACCOUNT_ID  identificador de la cuenta de Cloudflare
+# ---------------------------------------------------------------------------
+name: Desplegar
+
+on:
+  push:
+    tags:
+      - deploy/v*
+  # Escape manual para una emergencia. En el flujo normal no se usa: el camino
+  # es un tag `deploy/vX.Y.Z`, que deja rastro.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Un despliegue a la vez, y sin cancelar el que esté en curso a medias.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  desplegar:
+    name: Migrar y desplegar
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # ← Ajusta al nombre de tu configuración.
+      CONFIG: wrangler.instancia.jsonc
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Obtener el código (con los tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      # Solo se despliega un release publicado: el tag debe ser `deploy/vX.Y.Z`,
+      # coincidir con `package.json` y tener su sección en el CHANGELOG.
+      - name: Comprobar que es una versión publicada
+        if: startsWith(github.ref, 'refs/tags/deploy/')
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#deploy/}"
+          echo "Versión a desplegar: ${version}"
+          git rev-parse --verify --quiet "refs/tags/${version}" > /dev/null || {
+            echo "::error::El tag ${version} no existe en este repositorio: solo se despliegan versiones publicadas."
+            exit 1
+          }
+          node scripts/check-release.mjs "${version}"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobación de tipos
+        run: npm run typecheck
+
+      - name: Ejecutar pruebas
+        run: npm run test
+
+      - name: Compilar Worker y SPA
+        run: npm run build
+
+      # Las migraciones son acumulativas y van en orden. Se aplican **antes** de
+      # publicar el código nuevo: el código anterior convive con el esquema nuevo
+      # (las migraciones añaden; no renombran ni borran), no al revés.
+      - name: Aplicar migraciones pendientes
+        run: npx wrangler d1 migrations apply DB --remote -c "$CONFIG"
+
+      - name: Desplegar
+        run: npx wrangler deploy -c "$CONFIG"

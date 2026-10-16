@@ -8,9 +8,10 @@ configura y opera su **propia instalación independiente** en su **propia cuenta
 de Cloudflare**. No hay plataforma central, no hay multitenencia y no hay
 dependencia de un servicio externo de gestión.
 
-> **Estado:** en desarrollo. La base técnica (arquitectura, esquema de datos,
-> seguridad y despliegue) está en construcción por fases. Ver `CHANGELOG.md` y
-> `docs/ARCHITECTURE.md`.
+> **Estado:** primera versión publicada (**v0.1.0**). Funcionalidad completa de
+> inventario, personal, asignaciones, informes y sitio público con gestor de
+> contenidos. Queda pendiente la importación de datos del sistema anterior
+> (SQLite). Ver `CHANGELOG.md` y `docs/ARCHITECTURE.md`.
 
 ---
 
@@ -67,7 +68,7 @@ Requiere **Node.js 22 o superior**. Si usas `nodenv`, el repositorio fija la
 versión con `.node-version`.
 
 ```bash
-git clone git@github-personal:guillermofuentesgfq/bomberos-gestion.git
+git clone https://github.com/guillermofuentesgfq/bomberos-gestion.git
 cd bomberos-gestion
 npm install
 
@@ -142,6 +143,24 @@ administrador, desplegar y configurar el dominio.
 
 ---
 
+## Versiones y actualizaciones
+
+Este proyecto **no despliega `main`**: publica versiones etiquetadas (`vX.Y.Z`)
+y las instalaciones se atan a ellas. Si mantienes una instalación en el tiempo,
+lo recomendable es tu **propio repositorio** que siga los tags del proyecto,
+despliegue solo versiones publicadas y reciba las actualizaciones fusionándolas.
+La guía está en [`deploy/README.md`](deploy/README.md), el procedimiento de
+publicación en [`docs/RELEASING.md`](docs/RELEASING.md) y cómo actualizar una
+instalación en la sección *Actualizaciones* de
+[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+```bash
+git fetch upstream --tags     # traer las versiones publicadas
+git merge v0.1.0              # actualizar a una de ellas
+```
+
+---
+
 ## Documentación
 
 | Documento | Contenido |
@@ -150,6 +169,8 @@ administrador, desplegar y configurar el dominio.
 | [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Esquema de datos y propósito de cada tabla |
 | [`docs/AUDIT.md`](docs/AUDIT.md) | Auditoría del sistema original y matriz de paridad |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Instalación y despliegue paso a paso |
+| [`docs/RELEASING.md`](docs/RELEASING.md) | Cómo se publica una versión |
+| [`deploy/README.md`](deploy/README.md) | Instalación por institución, atada a versiones |
 | [`docs/BACKUP_AND_RESTORE.md`](docs/BACKUP_AND_RESTORE.md) | Respaldo y restauración |
 | [`SECURITY.md`](SECURITY.md) | Modelo de seguridad y reporte de vulnerabilidades |
 | [`TESTING.md`](TESTING.md) | Estrategia y ejecución de pruebas |

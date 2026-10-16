@@ -1,11 +1,14 @@
-# Integración continua: se ejecuta en cada push y pull request hacia `main`.
-# No usa secretos ni credenciales; solo compila y comprueba el repositorio.
+# Integración continua: se ejecuta en cada push y pull request hacia `main`, y
+# en cada tag de versión (`vX.Y.Z`) para que ninguna publicación salga sin
+# verificarse. No usa secretos ni credenciales; solo compila y comprueba.
 name: CI
 
 on:
   push:
     branches:
       - main
+    tags:
+      - v*
   pull_request:
     branches:
       - main
@@ -47,3 +50,9 @@ jobs:
 
       - name: Comprobar documentación exigida
         run: npm run docs:check
+
+      # Solo en un tag de versión: el tag debe concordar con package.json y el
+      # CHANGELOG debe tener esa versión cerrada, sin nada «[No publicado]».
+      - name: Comprobar la publicación
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: npm run release:check

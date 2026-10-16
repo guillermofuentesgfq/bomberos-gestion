@@ -1,58 +1,90 @@
 # Historial de cambios
 
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y
-el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
+El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y el
+proyecto usa [Versionado Semántico](https://semver.org/lang/es/). El
+procedimiento para publicar una versión está en
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## [No publicado]
 
+## [0.1.0] - 2026-10-16
+
+Primera versión publicada. Instalación **vacía**: sin datos personales ni
+imágenes del sistema anterior. La importación del sistema previo (SQLite) queda
+para una versión posterior.
+
 ### Añadido
 
-- Auditoría del sistema original y matriz de paridad (`docs/AUDIT.md`).
-- Arquitectura documentada (`docs/ARCHITECTURE.md`) y modelo de datos
-  (`docs/DATA_MODEL.md`).
-- Esquema D1 normalizado en migraciones versionadas:
-  - `0001_schema.sql`: configuración, usuarios/roles/sesiones/auditoría,
-    almacenamiento, catálogos, inventario, personas, movimientos, asignaciones y
-    devoluciones parciales, traslados, bajas, mantenimiento, idempotencia y CMS.
-  - `0002_reference_data.sql`: permisos, cinco roles iniciales, condiciones
-    físicas, calidades y secciones del sitio. Sin datos personales.
-- Esqueleto del Worker (Hono + Zod, TypeScript estricto) con:
-  - sonda de salud `GET /api/v1/health`;
-  - cabeceras de seguridad y CSP por defecto;
-  - límite de tamaño de solicitud;
-  - respuestas JSON uniformes y manejo de errores sin filtrar detalles internos.
-- Esqueleto de la SPA (React + Vite + Tailwind) servida como Static Assets con
-  fallback y proxy de API en desarrollo.
-- Herramientas de proyecto: `wrangler.jsonc`, `tsconfig.json` estricto,
-  `vitest.config.ts`, `scripts/check-docs.mjs`.
-- Documentación: README, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, TESTING,
-  DEPLOYMENT, BACKUP_AND_RESTORE y CHANGELOG.
-- Licencia MIT.
+- Auditoría del sistema original y matriz de paridad (`docs/AUDIT.md`),
+  arquitectura (`docs/ARCHITECTURE.md`) y modelo de datos (`docs/DATA_MODEL.md`).
+- Esquema D1 normalizado en migraciones versionadas: `0001_schema.sql`,
+  `0002_reference_data.sql`, `0003_assignment_batch_unique.sql`,
+  `0004_materials_photo.sql` y `0005_storage_objects_scope.sql`. Sin datos
+  personales; solo permisos, roles, condiciones físicas, calidades y secciones
+  del sitio como datos de referencia.
 - **Seguridad desde el primer despliegue:** contraseñas PBKDF2-SHA256 con sal y
   *pepper*; sesiones opacas revocables en cookie `HttpOnly`; CSRF obligatorio en
   operaciones con estado; autorización por permiso en el servidor; limitación de
-  intentos con bloqueo; auditoría saneada; inicialización segura del primer
-  administrador.
-- **Inventario y personal:** materiales, existencias por ubicación y condición,
-  unidades individuales, lotes, traslados, cambios de condición, bajas,
-  mantenimiento, personas con historial de cargos, y **asignaciones con
-  devoluciones parciales**.
-- **Integridad:** cada operación en un `batch()` atómico; la no-negatividad se
-  garantiza con `CHECK (quantity >= 0)` y las devoluciones con
-  `CHECK (returned_qty <= quantity)`; idempotencia por `Idempotency-Key`.
-- **Almacenamiento R2 privado** con validación real de imágenes por bytes y
-  rechazo de contenido activo (SVG).
-- **Sitio web público configurable y CMS:** configuración institucional,
-  secciones activables/ordenables, páginas, noticias, actividades y galerías con
-  borrador/publicar/despublicar/archivar; `sitemap.xml` y `robots.txt`.
-- **Informes y exportación:** siete informes y exportación a `.xlsx` real
-  (generador OOXML propio, sin dependencias) con protección anti-inyección de
-  fórmulas.
-- **Pruebas de integración en el runtime de Workers** con D1 y R2 reales
-  (91 pruebas).
+  intentos con bloqueo; auditoría saneada; inicialización del primer
+  administrador con token de un solo uso.
+- **Inventario:** catálogo de materiales, categorías, tipos, marcas, modelos y
+  tallas; existencias por ubicación y condición; unidades individualizadas con
+  código y número de serie; lotes; stock mínimo; fotografías; historial de
+  movimientos.
+- **Personal y cargos:** fichas con calidad, cargos configurables por institución
+  (sin jerarquía fija), historial de entregas y devoluciones, foto privada y
+  ficha imprimible.
+- **Asignaciones y devoluciones:** entregas de una o varias unidades,
+  devoluciones totales y parciales, actas imprimibles.
+- **Traslados, bajas y mantenimiento:** movimientos parciales, bajas con motivo
+  obligatorio y acta, registro de reparaciones e intervenciones.
+- **Informes y exportaciones:** siete informes (inventario, material por
+  ubicación y categoría, asignaciones, movimientos, bajas, personal y actas) y
+  exportación a `.xlsx` real, con generador OOXML propio y protección
+  anti-inyección de fórmulas.
+- **Sitio web público y gestor de contenidos:** portada configurable con
+  secciones que se activan, desactivan y ordenan; páginas, noticias, actividades
+  y galerías con borrador, publicación, retirada y archivo; `sitemap.xml` y
+  `robots.txt`; identidad institucional (escudo, logotipo, color, portada) sin
+  nada fijado en el código.
+- **Editor de texto enriquecido** sin dependencias, con saneado estricto en el
+  servidor al guardar.
+- **Pruebas de integración en el runtime de Workers** con D1 y R2 reales,
+  ejecutadas en cada push y en cada versión.
+- **Instalación por institución:** plantilla de despliegue en `deploy/` (una
+  copia por institución, atada a versiones publicadas) y guarda de publicación
+  (`scripts/check-release.mjs`), que impide publicar un tag que no cuadre con
+  `package.json` y el historial.
+
+### Corregido
+
+- **Auditoría de seguridad del reconstruido** (informe en `docs/AUDIT.md` y
+  `~/security-audit-skill/bomberos-gestion/run-1/`), con su prueba de regresión
+  cada corrección:
+  - el saneador de enlaces se podía esquivar con tabuladores y saltos de línea,
+    y admitía URLs relativas al protocolo;
+  - el documento de la SPA en producción no llevaba CSP ni protección de
+    enmarcado (ahora el documento lo sirve el Worker con el juego completo de
+    cabeceras, más una meta CSP como respaldo);
+  - las redes sociales institucionales admitían cualquier esquema (`javascript:`);
+  - el acceso a un archivo privado se autorizaba por permiso general y no por
+    objeto: ahora cada objeto tiene su ámbito (`site`, `inventory`, `person`) y
+    exige el permiso correspondiente, y las referencias se validan al escribir;
+  - se podían «acuñar» existencias trasladando desde una ubicación sin fila de
+    stock, y registrar bajas sin descontar nada;
+  - la idempotencia compartía la respuesta entre usuarios distintos y una
+    operación fallida dejaba la clave bloqueada para siempre;
+  - las mutaciones de personal y de catálogo no dejaban fila de auditoría;
+  - faltaban topes agregados (cuerpo de las peticiones, fotos por galería,
+    tamaño total del almacén) y no se limpiaban sesiones, intentos de ingreso ni
+    reservas caducadas.
 
 ### Notas
 
-- Instalación **vacía**: sin datos personales ni imágenes del sistema original.
-- Los límites del plan gratuito de Cloudflare quedan documentados en
-  `docs/ARCHITECTURE.md`.
+- Licencia MIT. Una instalación independiente por institución, sin plataforma
+  central ni multitenencia.
+- Los límites del plan gratuito de Cloudflare y las decisiones de arquitectura
+  están documentados en `docs/ARCHITECTURE.md`.
+- Publicar una versión: [`docs/RELEASING.md`](docs/RELEASING.md). Desplegar una
+  instalación: [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) y
+  [`deploy/README.md`](deploy/README.md).

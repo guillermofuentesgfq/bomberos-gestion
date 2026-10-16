@@ -1,0 +1,80 @@
+// ---------------------------------------------------------------------------
+// Configuración de despliegue de UNA institución · EJEMPLO
+//
+// Cópialo a la RAÍZ de tu repositorio con un nombre propio, por ejemplo
+// `wrangler.mi-compania.jsonc`, y rellena los tres valores marcados con
+// MAYÚSCULAS. El `deploy/README.md` explica el procedimiento completo.
+//
+// ¿Por qué en la raíz y no aquí dentro?
+//   Wrangler resuelve `main`, `assets.directory` y `migrations_dir` **relativos
+//   al archivo de configuración**. Desde `deploy/` buscaría
+//   `deploy/src/worker/index.ts` y fallaría con «entry-point file was not
+//   found». Desde la raíz, las rutas de abajo son las correctas.
+//
+// ¿Por qué un archivo propio y no editar `wrangler.jsonc`?
+//   `wrangler.jsonc` pertenece al proyecto: el upstream lo cambia cuando añade
+//   rutas o ajustes. Si tu copia lo editara, cada actualización chocaría. Este
+//   archivo, en cambio, no existe en el upstream y nunca se toca al actualizar.
+//
+// Nunca escribas secretos aquí: solo identificadores. Los secretos se definen
+// con `wrangler secret put` (en producción) y en `.dev.vars` (en local).
+// ---------------------------------------------------------------------------
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  // Nombre del Worker en tu cuenta. Debe ser único en toda tu cuenta.
+  "name": "MI-INSTITUCION",
+
+  // El punto de entrada no cambia: es el mismo Worker para toda institución.
+  "main": "src/worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "assets": {
+    "directory": "./dist/web",
+    // `binding` es obligatorio: sin él, `env.ASSETS` no existe y la portada
+    // responde 500 («Cannot read properties of undefined»).
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": [
+      "/api/*",
+      "/",
+      "/index.html",
+      "/sitemap.xml",
+      "/robots.txt",
+      "/favicon.ico",
+      "/apple-touch-icon.png"
+    ]
+  },
+
+  // Limpieza diaria de sesiones, intentos de ingreso y reservas caducadas.
+  "triggers": {
+    "crons": ["0 4 * * *"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "MI-BASE-D1",
+      // Lo devuelve `wrangler d1 create`. Sustituye el marcador por tu UUID.
+      "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "FILES",
+      "bucket_name": "MI-BUCKET-R2"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  },
+
+  "vars": {
+    // En producción siempre "production": activa la marca Secure de la cookie.
+    "APP_ENV": "production"
+  }
+}

@@ -83,6 +83,12 @@ Estas ya han costado tiempo. Si vas a tocar alguna de estas zonas, léelas antes
   de seguridad.
 - **`updateInstitutionConfig` usa una lista blanca explícita de claves.** Una clave
   nueva se ignora **en silencio** si no se añade ahí.
+- **Wrangler resuelve `main`, `assets.directory` y `migrations_dir` relativos al
+  archivo de configuración**, no al directorio desde donde ejecutas el comando.
+  Una configuración de institución dentro de `deploy/` buscaría
+  `deploy/src/worker/index.ts` y fallaría con *«entry-point file was not found»*:
+  por eso va en la **raíz**, con un nombre propio
+  (`wrangler.<institución>.jsonc`). Comprobado con `wrangler deploy --dry-run`.
 - `wrangler` lee **`.dev.vars`**, no `.env`.
 
 ### Permisos y seguridad
@@ -141,6 +147,19 @@ Estas ya han costado tiempo. Si vas a tocar alguna de estas zonas, léelas antes
 2. Asegúrate de que typecheck, build y pruebas pasan.
 3. Describe qué cambia y por qué; enlaza la incidencia si existe.
 4. No incluyas datos personales, credenciales ni secretos.
+
+## Publicar una versión
+
+No publiques desde `main`: este proyecto despliega **versiones etiquetadas**.
+Antes de etiquetar, asegúrate de que el historial está cerrado y pasa la guarda:
+
+```bash
+npm run release:check v1.2.0
+```
+
+El procedimiento completo (cerrar el `CHANGELOG`, subir la versión, etiquetar con
+tag anotado, crear la publicación) está en
+[`docs/RELEASING.md`](docs/RELEASING.md).
 
 ## Licencia de las contribuciones
 
