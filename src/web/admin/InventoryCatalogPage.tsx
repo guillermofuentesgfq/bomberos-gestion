@@ -3,13 +3,14 @@
  *
  * Sub-sección de Inventario con las ubicaciones, las categorías y los tipos de
  * material que se usan al registrar material. Cada listado permite crear
- * elementos y archivarlos con una confirmación en dos pasos (sin `window.confirm`,
- * igual que el borrado de fotos de la galería). Al final se muestran, en solo
- * lectura, los estados que definen qué existencias cuentan como disponibles.
+ * elementos, editarlos en línea (una fila a la vez) y archivarlos con una
+ * confirmación en dos pasos (sin `window.confirm`, igual que el borrado de
+ * fotos de la galería). Al final se muestran, en solo lectura, los estados que
+ * definen qué existencias cuentan como disponibles.
  */
 
 import { useCallback, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { Alert } from '../components/Alert';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -17,7 +18,7 @@ import { PageHeader } from '../components/PageHeader';
 import { TextField } from '../components/TextField';
 import { ApiError } from '../lib/api';
 import { useAsync } from '../lib/useAsync';
-import { SelectField, StatusMessage } from './adminFields';
+import { SelectField, StatusMessage, TextAreaField } from './adminFields';
 import {
   archiveCategory,
   archiveLocation,
@@ -25,6 +26,9 @@ import {
   createMaterialType,
   errorMessage,
   fetchInventoryCatalog,
+  updateCategory,
+  updateLocation,
+  updateMaterialType,
 } from './adminApi';
 import type { CategoryOption, ConditionOption, InventoryCatalog, LocationOption, MaterialTypeOption } from './adminApi';
 import { createCategory, createLocation } from './settingsApi';
@@ -35,29 +39,47 @@ interface CatalogEntry {
   meta?: string | undefined;
 }
 
-/** Listado con la confirmación en dos pasos para archivar un elemento. */
-function CatalogList({
+interface CatalogListProps<T extends CatalogEntry> {
+  items: readonly T[];
+  emptyMessage: string;
+  noun: string;
+  confirmId: number | null;
+  editingId: number | null;
+  archivingId: number | null;
+  saving: boolean;
+  onRequestArchive: (id: number) => void;
+  onCancelArchive: () => void;
+  onArchive: (id: number, name: string) => void;
+  onStartEdit: (id: number) => void;
+  onCancelEdit: () => void;
+  renderEditForm: (item: T) => ReactNode;
+}
+
+/**
+ * Listado del catálogo con edición en línea y confirmación en dos pasos para
+ * archivar. Solo una fila puede estar en edición a la vez: el formulario se
+ * despliega dentro de la misma fila y el botón «Editar» expone `aria-expanded`.
+ */
+function CatalogList<T extends CatalogEntry>({
   items,
   emptyMessage,
   noun,
   confirmId,
+  editingId,
   archivingId,
+  saving,
   onRequestArchive,
   onCancelArchive,
   onArchive,
-}: {
-  items: readonly CatalogEntry[];
-  emptyMessage: string;
-  noun: string;
-  confirmId: number | null;
-  archivingId: number | null;
-  onRequestArchive: (id: number) => void;
-  onCancelArchive: () => void;
-  onArchive: (id: number, name: string) => void;
-}) {
+  onStartEdit,
+  onCancelEdit,
+  renderEditForm,
+}: CatalogListProps<T>) {
   if (items.length === 0) {
     return <StatusMessage>{emptyMessage}</StatusMessage>;
   }
+
+  const busy = archivingId !== null || saving;
 
   return (
     <ul className="flex flex-col gap-2">
@@ -88,22 +110,37 @@ function CatalogList({
               </div>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="flex flex-col">
-                <span className="text-base text-ink">{item.name}</span>
-                {item.meta !== undefined ? (
-                  <span className="text-sm text-ink-muted">{item.meta}</span>
-                ) : null}
-              </span>
-              <Button
-                variant="secondary"
-                className="min-h-9 px-3 py-1 text-sm"
-                disabled={archivingId !== null}
-                aria-label={`Archivar ${noun} ${item.name}`}
-                onClick={() => onRequestArchive(item.id)}
-              >
-                Archivar
-              </Button>
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="flex flex-col">
+                  <span className="text-base text-ink">{item.name}</span>
+                  {item.meta !== undefined ? (
+                    <span className="text-sm text-ink-muted">{item.meta}</span>
+                  ) : null}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="secondary"
+                    className="min-h-9 px-3 py-1 text-sm"
+                    disabled={busy}
+                    aria-expanded={editingId === item.id}
+                    aria-label={`Editar ${noun} ${item.name}`}
+                    onClick={() => (editingId === item.id ? onCancelEdit() : onStartEdit(item.id))}
+                  >
+                    Editar
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="min-h-9 px-3 py-1 text-sm"
+                    disabled={busy}
+                    aria-label={`Archivar ${noun} ${item.name}`}
+                    onClick={() => onRequestArchive(item.id)}
+                  >
+                    Archivar
+                  </Button>
+                </div>
+              </div>
+              {editingId === item.id ? renderEditForm(item) : null}
             </div>
           )}
         </li>
@@ -129,6 +166,11 @@ function LocationsSection({
   const [adding, setAdding] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,6 +193,44 @@ function LocationsSection({
       );
     } finally {
       setAdding(false);
+    }
+  }
+
+  function startEdit(location: LocationOption) {
+    setConfirmId(null);
+    setEditingId(location.id);
+    setEditName(location.name);
+    setEditDescription(location.description ?? '');
+    setNameError(null);
+    onError(null);
+    onNotice(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setNameError(null);
+  }
+
+  async function handleSave(id: number) {
+    if (saving) return;
+    const value = editName.trim();
+    if (!value) {
+      setNameError('Escribe un nombre para la ubicación.');
+      return;
+    }
+    setNameError(null);
+    setSaving(true);
+    onError(null);
+    onNotice(null);
+    try {
+      await updateLocation(id, { name: value, description: editDescription.trim() || null }, csrfToken);
+      setEditingId(null);
+      onNotice(`Ubicación «${value}» actualizada.`);
+      onChanged();
+    } catch (cause) {
+      onError(errorMessage(cause));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -180,14 +260,68 @@ function LocationsSection({
       </p>
 
       <CatalogList
-        items={items.map((location) => ({ id: location.id, name: location.name }))}
+        items={items.map((location) => ({
+          id: location.id,
+          name: location.name,
+          meta: location.description ?? undefined,
+        }))}
         emptyMessage="Todavía no hay ubicaciones."
         noun="la ubicación"
         confirmId={confirmId}
+        editingId={editingId}
         archivingId={archivingId}
-        onRequestArchive={(id) => setConfirmId(id)}
+        saving={saving}
+        onRequestArchive={(id) => {
+          cancelEdit();
+          setConfirmId(id);
+        }}
         onCancelArchive={() => setConfirmId(null)}
         onArchive={(id, value) => void handleArchive(id, value)}
+        onStartEdit={(id) => {
+          const location = items.find((entry) => entry.id === id);
+          if (location) startEdit(location);
+        }}
+        onCancelEdit={cancelEdit}
+        renderEditForm={(location) => (
+          <form
+            className="flex flex-col gap-3"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSave(location.id);
+            }}
+          >
+            <TextField
+              label="Nombre"
+              required
+              value={editName}
+              error={nameError ?? undefined}
+              onChange={(event) => {
+                setEditName(event.target.value);
+                if (nameError) setNameError(null);
+              }}
+            />
+            <TextAreaField
+              label="Descripción"
+              hint="Opcional. Por ejemplo, para qué se usa esta ubicación."
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" className="min-h-9 px-3 py-1 text-sm" loading={saving}>
+                Guardar cambios
+              </Button>
+              <Button
+                variant="secondary"
+                className="min-h-9 px-3 py-1 text-sm"
+                disabled={saving}
+                onClick={cancelEdit}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        )}
       />
 
       <form className="flex flex-col gap-3" onSubmit={handleAdd} noValidate>
@@ -224,6 +358,10 @@ function CategoriesSection({
   const [adding, setAdding] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
 
   async function handleAdd(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -246,6 +384,43 @@ function CategoriesSection({
       );
     } finally {
       setAdding(false);
+    }
+  }
+
+  function startEdit(category: CategoryOption) {
+    setConfirmId(null);
+    setEditingId(category.id);
+    setEditName(category.name);
+    setNameError(null);
+    onError(null);
+    onNotice(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setNameError(null);
+  }
+
+  async function handleSave(id: number) {
+    if (saving) return;
+    const value = editName.trim();
+    if (!value) {
+      setNameError('Escribe un nombre para la categoría.');
+      return;
+    }
+    setNameError(null);
+    setSaving(true);
+    onError(null);
+    onNotice(null);
+    try {
+      await updateCategory(id, { name: value }, csrfToken);
+      setEditingId(null);
+      onNotice(`Categoría «${value}» actualizada.`);
+      onChanged();
+    } catch (cause) {
+      onError(errorMessage(cause));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -278,10 +453,54 @@ function CategoriesSection({
         emptyMessage="Todavía no hay categorías."
         noun="la categoría"
         confirmId={confirmId}
+        editingId={editingId}
         archivingId={archivingId}
-        onRequestArchive={(id) => setConfirmId(id)}
+        saving={saving}
+        onRequestArchive={(id) => {
+          cancelEdit();
+          setConfirmId(id);
+        }}
         onCancelArchive={() => setConfirmId(null)}
         onArchive={(id, value) => void handleArchive(id, value)}
+        onStartEdit={(id) => {
+          const category = items.find((entry) => entry.id === id);
+          if (category) startEdit(category);
+        }}
+        onCancelEdit={cancelEdit}
+        renderEditForm={(category) => (
+          <form
+            className="flex flex-col gap-3"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSave(category.id);
+            }}
+          >
+            <TextField
+              label="Nombre"
+              required
+              value={editName}
+              error={nameError ?? undefined}
+              onChange={(event) => {
+                setEditName(event.target.value);
+                if (nameError) setNameError(null);
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" className="min-h-9 px-3 py-1 text-sm" loading={saving}>
+                Guardar cambios
+              </Button>
+              <Button
+                variant="secondary"
+                className="min-h-9 px-3 py-1 text-sm"
+                disabled={saving}
+                onClick={cancelEdit}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        )}
       />
 
       <form className="flex flex-col gap-3" onSubmit={handleAdd} noValidate>
@@ -321,6 +540,11 @@ function MaterialTypesSection({
   const [adding, setAdding] = useState(false);
   const [confirmId, setConfirmId] = useState<number | null>(null);
   const [archivingId, setArchivingId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCategoryId, setEditCategoryId] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
 
   const categoryName = (id: number | null): string => {
     if (id === null) return 'Sin categoría';
@@ -351,6 +575,48 @@ function MaterialTypesSection({
       );
     } finally {
       setAdding(false);
+    }
+  }
+
+  function startEdit(type: MaterialTypeOption) {
+    setConfirmId(null);
+    setEditingId(type.id);
+    setEditName(type.name);
+    setEditCategoryId(type.category_id === null ? '' : String(type.category_id));
+    setNameError(null);
+    onError(null);
+    onNotice(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setNameError(null);
+  }
+
+  async function handleSave(id: number) {
+    if (saving) return;
+    const value = editName.trim();
+    if (!value) {
+      setNameError('Escribe un nombre para el tipo de material.');
+      return;
+    }
+    setNameError(null);
+    setSaving(true);
+    onError(null);
+    onNotice(null);
+    try {
+      await updateMaterialType(
+        id,
+        { name: value, categoryId: editCategoryId ? Number(editCategoryId) : null },
+        csrfToken,
+      );
+      setEditingId(null);
+      onNotice(`Tipo de material «${value}» actualizado.`);
+      onChanged();
+    } catch (cause) {
+      onError(errorMessage(cause));
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -387,10 +653,64 @@ function MaterialTypesSection({
         emptyMessage="Todavía no hay tipos de material."
         noun="el tipo de material"
         confirmId={confirmId}
+        editingId={editingId}
         archivingId={archivingId}
-        onRequestArchive={(id) => setConfirmId(id)}
+        saving={saving}
+        onRequestArchive={(id) => {
+          cancelEdit();
+          setConfirmId(id);
+        }}
         onCancelArchive={() => setConfirmId(null)}
         onArchive={(id, value) => void handleArchive(id, value)}
+        onStartEdit={(id) => {
+          const type = items.find((entry) => entry.id === id);
+          if (type) startEdit(type);
+        }}
+        onCancelEdit={cancelEdit}
+        renderEditForm={(type) => (
+          <form
+            className="flex flex-col gap-3"
+            noValidate
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSave(type.id);
+            }}
+          >
+            <TextField
+              label="Nombre"
+              required
+              value={editName}
+              error={nameError ?? undefined}
+              onChange={(event) => {
+                setEditName(event.target.value);
+                if (nameError) setNameError(null);
+              }}
+            />
+            <SelectField
+              label="Categoría"
+              options={categories.map((category) => ({
+                value: String(category.id),
+                label: category.name,
+              }))}
+              placeholder="Sin categoría"
+              value={editCategoryId}
+              onChange={(event) => setEditCategoryId(event.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              <Button type="submit" className="min-h-9 px-3 py-1 text-sm" loading={saving}>
+                Guardar cambios
+              </Button>
+              <Button
+                variant="secondary"
+                className="min-h-9 px-3 py-1 text-sm"
+                disabled={saving}
+                onClick={cancelEdit}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        )}
       />
 
       <form className="flex flex-col gap-3" onSubmit={handleAdd} noValidate>

@@ -168,29 +168,75 @@ export function EmptySite() {
   );
 }
 
+/*
+ * Texto claro del bloque enriquecido de la portada cuando hay foto de fondo.
+ *
+ * `.richtext` (sin capa) fija su propio color y el de enlaces, encabezados y
+ * citas, así que una utilidad normal pierde la cascada: se necesita `!` para
+ * garantizar el blanco sobre el velo oscuro (contraste AA). El enlace conserva
+ * su subrayado; solo cambia el color.
+ */
+const HERO_RICHTEXT_ON_COVER =
+  'text-white! [&_a]:text-white! [&_blockquote]:text-white! [&_h2]:text-white! [&_h3]:text-white! [&_h4]:text-white!';
+
 function HeroSection() {
   const { site } = useSite();
   if (!site) return null;
   const { institution } = site;
   const name = institution.name.trim() || 'Cuerpo de Bomberos';
   const specialties = institution.specialties;
+  const cover = institution.cover;
 
   return (
-    <section id="inicio" className="scroll-mt-6 border-b border-line bg-muted py-16 sm:py-24">
+    <section
+      id="inicio"
+      className={cx(
+        'scroll-mt-6 border-b border-line py-16 sm:py-24',
+        cover ? 'relative isolate overflow-hidden' : 'bg-muted',
+      )}
+    >
+      {cover ? (
+        <>
+          <img
+            src={cover.url}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 h-full w-full object-cover"
+          />
+          <div aria-hidden="true" className="absolute inset-0 -z-10 bg-brand-secondary/80" />
+        </>
+      ) : null}
+
       <Container>
         <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex max-w-[65ch] flex-col gap-5">
-            <h1 className="text-4xl leading-tight font-bold text-balance text-ink sm:text-5xl">
+            <h1
+              className={cx(
+                'text-4xl leading-tight font-bold text-balance',
+                cover ? 'text-white' : 'text-ink',
+                'sm:text-5xl',
+              )}
+            >
               {name}
             </h1>
             {institution.number ? (
-              <p className="inline-flex w-fit items-center rounded-md border border-brand bg-brand/5 px-2.5 py-1 text-sm font-semibold text-brand">
+              <p
+                className={cx(
+                  'inline-flex w-fit items-center rounded-md border px-2.5 py-1 text-sm font-semibold',
+                  cover
+                    ? 'border-white/40 bg-white/10 text-white'
+                    : 'border-brand bg-brand/5 text-brand',
+                )}
+              >
                 {institution.number}
               </p>
             ) : null}
             {toPlainText(institution.description, 1) ? (
               <div
-                className="richtext text-lg text-ink-muted"
+                className={cx(
+                  'richtext text-lg',
+                  cover ? HERO_RICHTEXT_ON_COVER : 'text-ink-muted',
+                )}
                 dangerouslySetInnerHTML={{ __html: institution.description }}
               />
             ) : null}
@@ -203,7 +249,12 @@ function HeroSection() {
               </AppLink>
               <AppLink
                 to="/noticias"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg border-2 border-brand px-6 py-3 text-base font-semibold text-brand transition-colors duration-200 ease-out hover:bg-brand/5"
+                className={cx(
+                  'inline-flex min-h-11 items-center justify-center rounded-lg border-2 px-6 py-3 text-base font-semibold transition-colors duration-200 ease-out',
+                  cover
+                    ? 'border-white text-white hover:bg-white/10'
+                    : 'border-brand text-brand hover:bg-brand/5',
+                )}
               >
                 Noticias
               </AppLink>
@@ -213,7 +264,12 @@ function HeroSection() {
                 {specialties.slice(0, 6).map((specialty) => (
                   <li
                     key={specialty}
-                    className="rounded-md border border-line bg-surface px-3 py-1 text-sm font-semibold text-ink"
+                    className={cx(
+                      'rounded-md border px-3 py-1 text-sm font-semibold',
+                      cover
+                        ? 'border-white/30 bg-white/10 text-white'
+                        : 'border-line bg-surface text-ink',
+                    )}
                   >
                     {specialty}
                   </li>
@@ -229,12 +285,20 @@ function HeroSection() {
                 alt={institution.shield.alt ?? `Escudo de ${name}`}
                 width={institution.shield.width ?? undefined}
                 height={institution.shield.height ?? undefined}
-                className="h-40 w-40 object-contain sm:h-52 sm:w-52"
+                className={cx(
+                  'h-40 w-40 object-contain sm:h-52 sm:w-52',
+                  cover ? 'rounded-full bg-white/5 p-2' : undefined,
+                )}
               />
             ) : (
               <span
                 aria-hidden="true"
-                className="flex h-40 w-40 items-center justify-center rounded-[var(--radius-card)] border border-line bg-surface text-5xl font-bold text-brand sm:h-52 sm:w-52"
+                className={cx(
+                  'flex h-40 w-40 items-center justify-center rounded-[var(--radius-card)] border text-5xl font-bold sm:h-52 sm:w-52',
+                  cover
+                    ? 'border-white/40 bg-white/10 text-white'
+                    : 'border-line bg-surface text-brand',
+                )}
               >
                 {name.slice(0, 1).toUpperCase()}
               </span>

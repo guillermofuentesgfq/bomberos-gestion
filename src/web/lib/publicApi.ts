@@ -33,6 +33,7 @@ export interface PublicInstitution {
   corpsInfo: string;
   shield: PublicImage | null;
   logo: PublicImage | null;
+  cover: PublicImage | null;
   primaryColor: string;
   secondaryColor: string;
   address: string;

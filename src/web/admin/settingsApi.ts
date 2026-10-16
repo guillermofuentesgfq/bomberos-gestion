@@ -70,6 +70,7 @@ export interface InstitutionConfig {
   corpsInfo: string;
   shieldObjectId: number | null;
   logoObjectId: number | null;
+  coverObjectId: number | null;
   primaryColor: string;
   secondaryColor: string;
   address: string;

@@ -20,6 +20,7 @@ import { buildWorkbook, XLSX_CONTENT_TYPE } from '../services/xlsx';
 import type { ReportTable, DateRangeFilter } from '../services/reports';
 import {
   assignedReport,
+  inventoryPrintReport,
   inventoryReport,
   lowStockReport,
   maintenanceReport,
@@ -27,6 +28,7 @@ import {
   personnelReport,
   writeoffsReport,
 } from '../services/reports';
+import { actaInstitution } from '../services/actas';
 
 type AppEnv = { Bindings: Env; Variables: Variables };
 
@@ -151,6 +153,22 @@ reportsRoutes.get(
     return exportXlsx(c, { report: 'low-stock', sheet: 'Bajo mínimo', fileBase: 'bajo-minimo' }, table);
   },
 );
+
+// --- Inventario imprimible --------------------------------------------------
+
+/**
+ * Datos del inventario completo para la vista imprimible. No genera archivo,
+ * así que solo exige `inventory.read`, igual que el panel de resumen.
+ */
+reportsRoutes.get('/inventory', requireAuth, requirePermission('inventory.read'), async (c) => {
+  const report = await inventoryPrintReport(c.env.DB);
+  return ok(c, {
+    institution: await actaInstitution(c.env.DB),
+    generatedAt: nowIso(),
+    totals: report.totals,
+    detail: report.detail,
+  });
+});
 
 // --- Panel de resumen -------------------------------------------------------
 

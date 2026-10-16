@@ -13,9 +13,11 @@ import {
   ContentAdminPage,
   InventoryCatalogPage,
   InventoryPage,
+  InventoryPrintPage,
   MovementsPage,
   PersonDetailPage,
   PersonsPage,
+  ReportsPage,
   SettingsPage,
 } from './admin';
 
@@ -78,6 +80,11 @@ function AdminPanel() {
     return <ActaBajaPage writeoffId={Number(actaBaja[1])} />;
   }
 
+  // El inventario imprimible también es un documento suelto, sin el shell.
+  if (currentPath === '/admin/informes/inventario') {
+    return <InventoryPrintPage />;
+  }
+
   async function handleLogout() {
     setLoggingOut(true);
     try {
@@ -99,6 +106,8 @@ function AdminPanel() {
     content = <MovementsPage />;
   } else if (currentPath === '/admin/contenido') {
     content = <ContentAdminPage csrfToken={csrfToken} />;
+  } else if (currentPath === '/admin/informes') {
+    content = <ReportsPage />;
   } else if (currentPath === '/admin/ajustes') {
     content = <SettingsPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/inventario/catalogo') {

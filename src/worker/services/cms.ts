@@ -32,6 +32,8 @@ export interface InstitutionConfig {
   corpsInfo: string;
   shieldObjectId: number | null;
   logoObjectId: number | null;
+  /** Foto de fondo de la portada del sitio. */
+  coverObjectId: number | null;
   primaryColor: string;
   secondaryColor: string;
   address: string;
@@ -73,6 +75,7 @@ const DEFAULT_INSTITUTION: InstitutionConfig = {
   corpsInfo: '',
   shieldObjectId: null,
   logoObjectId: null,
+  coverObjectId: null,
   primaryColor: '#b91c1c',
   secondaryColor: '#111827',
   address: '',
@@ -153,6 +156,7 @@ export async function getInstitutionConfig(db: D1Database): Promise<InstitutionC
     corpsInfo: readString(map, 'corpsInfo', DEFAULT_INSTITUTION.corpsInfo),
     shieldObjectId: readId(map, 'shieldObjectId'),
     logoObjectId: readId(map, 'logoObjectId'),
+    coverObjectId: readId(map, 'coverObjectId'),
     primaryColor: readString(map, 'primaryColor', DEFAULT_INSTITUTION.primaryColor),
     secondaryColor: readString(map, 'secondaryColor', DEFAULT_INSTITUTION.secondaryColor),
     address: readString(map, 'address', DEFAULT_INSTITUTION.address),
@@ -213,6 +217,7 @@ export async function updateInstitutionConfig(
   pushString(entries, 'corpsInfo', patch.corpsInfo);
   pushId(entries, 'shieldObjectId', patch.shieldObjectId);
   pushId(entries, 'logoObjectId', patch.logoObjectId);
+  pushId(entries, 'coverObjectId', patch.coverObjectId);
   pushString(entries, 'primaryColor', patch.primaryColor);
   pushString(entries, 'secondaryColor', patch.secondaryColor);
   pushString(entries, 'address', patch.address);

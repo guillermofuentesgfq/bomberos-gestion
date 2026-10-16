@@ -152,6 +152,7 @@ function query(params: Record<string, string | number | undefined>): string {
 export interface LocationOption {
   id: number;
   name: string;
+  description: string | null;
   is_archive: number;
   archived_at: string | null;
 }
@@ -223,6 +224,75 @@ export function archiveMaterialType(id: number, csrfToken: string): Promise<{ ar
   return request<{ archived: true }>(`${BASE}/inventory/catalog/material-types/${id}`, {
     method: 'DELETE',
     csrfToken,
+  });
+}
+
+export interface UpdateLocationInput {
+  name: string;
+  description?: string | null | undefined;
+}
+
+/**
+ * `PUT /inventory/catalog/locations/:id`.
+ *
+ * Renombra una ubicación y reemplaza su descripción. Un nombre repetido
+ * responde `409`; una fila inexistente o archivada, `404`.
+ */
+export function updateLocation(
+  id: number,
+  input: UpdateLocationInput,
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/inventory/catalog/locations/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
+  });
+}
+
+export interface UpdateCategoryInput {
+  name: string;
+}
+
+/**
+ * `PUT /inventory/catalog/categories/:id`.
+ *
+ * Renombra una categoría. Un nombre repetido responde `409`; una fila
+ * inexistente o archivada, `404`.
+ */
+export function updateCategory(
+  id: number,
+  input: UpdateCategoryInput,
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/inventory/catalog/categories/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
+  });
+}
+
+export interface UpdateMaterialTypeInput {
+  name: string;
+  categoryId?: number | null | undefined;
+}
+
+/**
+ * `PUT /inventory/catalog/material-types/:id`.
+ *
+ * Renombra un tipo de material y reasigna su categoría; `categoryId: null`
+ * lo deja sin categoría. Un nombre repetido responde `409`; una fila
+ * inexistente o archivada, `404`.
+ */
+export function updateMaterialType(
+  id: number,
+  input: UpdateMaterialTypeInput,
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/inventory/catalog/material-types/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
   });
 }
 
@@ -741,4 +811,80 @@ export interface ActaBaja {
 /** `GET /inventory/writeoffs/:id/acta` (permiso `inventory.read`). */
 export function fetchActaBaja(id: number, signal?: AbortSignal): Promise<ActaBaja> {
   return request<ActaBaja>(`${BASE}/inventory/writeoffs/${id}/acta`, { signal });
+}
+
+// ---------------------------------------------------------------------------
+// Informes
+// ---------------------------------------------------------------------------
+
+/** Contadores agregados que resumen el inventario y el personal. */
+export interface ReportSummary {
+  materials: number;
+  units: number;
+  activePersonnel: number;
+  assignedUnits: number;
+  writeoffs: number;
+  lowStock: number;
+}
+
+/** `GET /reports/summary` (permiso `inventory.read`). */
+export function fetchReportSummary(signal?: AbortSignal): Promise<ReportSummary> {
+  return request<ReportSummary>(`${BASE}/reports/summary`, { signal });
+}
+
+/**
+ * Membrete institucional del inventario imprimible.
+ *
+ * Trae los mismos datos que encabezan las actas y, además, el logotipo: la
+ * pantalla prefiere el logotipo y recurre al escudo cuando no hay logo.
+ */
+export interface InventoryPrintInstitution {
+  name: string;
+  number: string;
+  address: string;
+  commune: string;
+  region: string;
+  country: string;
+  emergencyNumber: string;
+  phones: string[];
+  shieldObjectId: number | null;
+  logoObjectId: number | null;
+}
+
+/** Fila de totales por material del inventario imprimible. */
+export interface InventoryPrintTotals {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  type: string;
+  total: number;
+  available: number;
+  unavailable: number;
+  minStock: number;
+  belowMinStock: boolean;
+  photoObjectId: number | null;
+}
+
+/** Fila del desglose por ubicación del inventario imprimible. */
+export interface InventoryPrintDetail {
+  code: string;
+  name: string;
+  location: string;
+  condition: string;
+  quantity: number;
+}
+
+/** Documento completo del inventario imprimible. */
+export interface InventoryPrintReport {
+  institution: InventoryPrintInstitution;
+  /** Instante de generación, en ISO 8601. */
+  generatedAt: string;
+  totals: InventoryPrintTotals[];
+  detail: InventoryPrintDetail[];
+}
+
+/** `GET /reports/inventory` (permiso `inventory.read`). */
+export function fetchInventoryReport(signal?: AbortSignal): Promise<InventoryPrintReport> {
+  return request<InventoryPrintReport>(`${BASE}/reports/inventory`, { signal });
 }

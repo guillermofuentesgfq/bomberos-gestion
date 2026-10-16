@@ -32,6 +32,7 @@ export interface PublicInstitution {
   corpsInfo: string;
   shield: PublicImage | null;
   logo: PublicImage | null;
+  cover: PublicImage | null;
   primaryColor: string;
   secondaryColor: string;
   address: string;
@@ -191,6 +192,7 @@ export async function getPublicSite(db: D1Database): Promise<PublicSite> {
   const ids: (number | null)[] = [
     institution.shieldObjectId,
     institution.logoObjectId,
+    institution.coverObjectId,
     seo.ogImageObjectId,
     ...pages.map((page) => page.hero_object_id),
     ...news.map((item) => item.cover_object_id),
@@ -215,6 +217,7 @@ export async function getPublicSite(db: D1Database): Promise<PublicSite> {
       corpsInfo: institution.corpsInfo,
       shield: firstImage(images, institution.shieldObjectId),
       logo: firstImage(images, institution.logoObjectId),
+      cover: firstImage(images, institution.coverObjectId),
       primaryColor: institution.primaryColor,
       secondaryColor: institution.secondaryColor,
       address: institution.address,

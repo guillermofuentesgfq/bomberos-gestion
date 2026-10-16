@@ -15,6 +15,7 @@ export interface ActaInstitution {
   emergencyNumber: string;
   phones: string[];
   shieldObjectId: number | null;
+  logoObjectId: number | null;
   corpsInfo: string;
 }
 
@@ -37,6 +38,7 @@ export async function actaInstitution(db: D1Database): Promise<ActaInstitution> 
     emergencyNumber: config.emergencyNumber,
     phones: config.phones,
     shieldObjectId: config.shieldObjectId,
+    logoObjectId: config.logoObjectId,
     corpsInfo: richTextToPlain(config.corpsInfo),
   };
 }

@@ -1,8 +1,11 @@
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
+import type { Context } from 'hono';
 import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { ok } from '../lib/http';
+import { getInstitutionConfig } from '../services/cms';
+import { getObjectRecord, objectBody } from '../services/storage';
 import {
   buildRobots,
   buildSitemap,
@@ -107,3 +110,35 @@ seoRoutes.get('/robots.txt', async (c) => {
   c.header('cache-control', 'public, max-age=3600');
   return c.body(text, 200);
 });
+
+/**
+ * Icono de la pestaña.
+ *
+ * Se sirve el objeto configurado como **escudo** —y si no hay, el **logotipo**—
+ * para que la pestaña lleve la identidad de la institución sin tener que subir
+ * un archivo aparte ni tocar el repositorio. Solo se sirve si el objeto es
+ * público: el icono lo pide el navegador sin sesión.
+ *
+ * La caché es corta a propósito: al cambiar el escudo conviene que el icono se
+ * actualice en minutos, no en horas.
+ */
+async function serveIcon(c: Context<AppEnv>): Promise<Response> {
+  const config = await getInstitutionConfig(c.env.DB);
+  const objectId = config.shieldObjectId ?? config.logoObjectId;
+  if (objectId === null) throw AppError.notFound();
+
+  const record = await getObjectRecord(c.env.DB, objectId);
+  if (!record || record.is_public !== 1) throw AppError.notFound();
+
+  const object = await objectBody(c.env, record.object_key);
+  if (!object) throw AppError.notFound();
+
+  c.header('content-type', record.content_type);
+  c.header('cache-control', 'public, max-age=60, stale-while-revalidate=86400');
+  c.header('x-content-type-options', 'nosniff');
+  if (object.httpEtag) c.header('etag', object.httpEtag);
+  return c.body(object.body, 200);
+}
+
+seoRoutes.get('/favicon.ico', serveIcon);
+seoRoutes.get('/apple-touch-icon.png', serveIcon);

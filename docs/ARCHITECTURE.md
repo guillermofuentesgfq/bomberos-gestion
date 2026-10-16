@@ -104,6 +104,23 @@ saneado **no** ocurre en el cliente: un editor comprometido no puede saltárselo
 porque lo que llega a la base ya está limpio y es lo que sirve la API pública.
 Se complementa con la política de seguridad de contenido del Worker.
 
+### Identidad visual: icono y foto de portada
+
+El **icono de la pestaña** (`/favicon.ico` y `/apple-touch-icon.png`) lo sirve
+el Worker a partir del escudo configurado, y si no hay escudo, del logotipo. No
+hay un archivo fijo en el repositorio: así cada instalación lleva su propia
+identidad sin tocar el código. Solo se sirve si el objeto es **público**, porque
+lo pide el navegador sin sesión.
+
+Consecuencia de despliegue: los assets estáticos tienen prioridad sobre el
+Worker, de modo que estas rutas **deben** estar en `assets.run_worker_first` de
+`wrangler.jsonc` (junto a `/api/*`, `/sitemap.xml` y `/robots.txt`). Si se
+quitan de ahí, el navegador recibirá el `index.html` de la SPA en vez del icono.
+
+La **foto de portada** (`coverObjectId`) es otro objeto **público**: se muestra
+como fondo de la portada del sitio. Como el escudo y el logotipo, se resuelve a
+través de `storage_objects` y solo se expone si está marcada como pública.
+
 ### Límites del plan gratuito
 
 El diseño respeta las cuotas gratuitas (verificadas en octubre de 2026):

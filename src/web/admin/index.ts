@@ -8,6 +8,8 @@ export { InventoryPage } from './InventoryPage';
 export { InventoryCatalogPage } from './InventoryCatalogPage';
 export { ActaEntregaPage } from './ActaEntregaPage';
 export { ActaBajaPage } from './ActaBajaPage';
+export { ReportsPage } from './ReportsPage';
+export { InventoryPrintPage } from './InventoryPrintPage';
 export { PersonsPage, personDetailPath } from './PersonsPage';
 export { PersonDetailPage } from './PersonDetailPage';
 export { MovementsPage } from './MovementsPage';

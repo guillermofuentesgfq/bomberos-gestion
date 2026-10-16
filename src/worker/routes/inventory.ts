@@ -148,6 +148,91 @@ inventoryRoutes.delete(
   },
 );
 
+// Edición del catálogo. Se puede renombrar y corregir; dar de baja una entrada
+// sigue siendo el archivado, para no perder el historial que la referencia.
+const catalogName = z.string().trim().min(1, 'El nombre es obligatorio.').max(80);
+
+inventoryRoutes.put(
+  '/catalog/locations/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'ubicación');
+    const body = await readJson(
+      c,
+      z.object({
+        name: catalogName,
+        description: z.string().trim().max(400).nullable().optional(),
+      }),
+    );
+    try {
+      const changes = await catalog.updateLocation(
+        c.env.DB,
+        id,
+        body.name,
+        body.description ?? null,
+      );
+      if (changes === 0) throw AppError.notFound('Ubicación no encontrada.');
+      return ok(c, { updated: true });
+    } catch (error) {
+      if (isUniqueViolation(error)) throw AppError.conflict('Ya existe una ubicación con ese nombre.');
+      throw error;
+    }
+  },
+);
+
+inventoryRoutes.put(
+  '/catalog/categories/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'categoría');
+    const body = await readJson(c, z.object({ name: catalogName }));
+    try {
+      const changes = await catalog.updateCategory(c.env.DB, id, body.name);
+      if (changes === 0) throw AppError.notFound('Categoría no encontrada.');
+      return ok(c, { updated: true });
+    } catch (error) {
+      if (isUniqueViolation(error)) throw AppError.conflict('Ya existe una categoría con ese nombre.');
+      throw error;
+    }
+  },
+);
+
+inventoryRoutes.put(
+  '/catalog/material-types/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'tipo de material');
+    const body = await readJson(
+      c,
+      z.object({
+        name: catalogName,
+        categoryId: z.number().int().positive().nullable().optional(),
+      }),
+    );
+    try {
+      const changes = await catalog.updateMaterialType(
+        c.env.DB,
+        id,
+        body.name,
+        body.categoryId ?? null,
+      );
+      if (changes === 0) throw AppError.notFound('Tipo de material no encontrado.');
+      return ok(c, { updated: true });
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw AppError.conflict('Ese tipo ya existe en esa categoría.');
+      }
+      throw error;
+    }
+  },
+);
+
 // --- Materiales -------------------------------------------------------------
 
 const materialFilterSchema = z.object({

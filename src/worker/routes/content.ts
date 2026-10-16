@@ -93,6 +93,7 @@ const institutionSchema = z.object({
   corpsInfo: richText(8000).optional(),
   shieldObjectId: z.number().int().positive().nullable().optional(),
   logoObjectId: z.number().int().positive().nullable().optional(),
+  coverObjectId: z.number().int().positive().nullable().optional(),
   primaryColor: hexColor.optional(),
   secondaryColor: hexColor.optional(),
   address: z.string().trim().max(300).optional(),

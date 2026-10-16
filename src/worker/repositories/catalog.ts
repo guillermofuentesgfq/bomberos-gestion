@@ -4,6 +4,7 @@ import { nowIso } from '../lib/time';
 export interface LocationRow {
   id: number;
   name: string;
+  description: string | null;
   is_archive: number;
   archived_at: string | null;
 }
@@ -28,7 +29,7 @@ export interface ConditionRow {
 export async function listLocations(db: D1Database): Promise<LocationRow[]> {
   return all<LocationRow>(
     db,
-    `SELECT id, name, is_archive, archived_at FROM locations
+    `SELECT id, name, description, is_archive, archived_at FROM locations
       WHERE archived_at IS NULL ORDER BY sort_order, name`,
   );
 }
@@ -58,7 +59,7 @@ export async function listConditions(db: D1Database): Promise<ConditionRow[]> {
 export async function findLocation(db: D1Database, id: number): Promise<LocationRow | null> {
   return first<LocationRow>(
     db,
-    `SELECT id, name, is_archive, archived_at FROM locations WHERE id = ?`,
+    `SELECT id, name, description, is_archive, archived_at FROM locations WHERE id = ?`,
     id,
   );
 }
@@ -122,4 +123,47 @@ export async function archiveCatalogEntry(
   id: number,
 ): Promise<void> {
   await run(db, `UPDATE ${table} SET archived_at = ? WHERE id = ? AND archived_at IS NULL`, nowIso(), id);
+}
+
+/** Renombra una ubicación y ajusta su descripción. Devuelve las filas tocadas. */
+export async function updateLocation(
+  db: D1Database,
+  id: number,
+  name: string,
+  description: string | null,
+): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE locations SET name = ?, description = ? WHERE id = ? AND archived_at IS NULL`,
+    name,
+    description,
+    id,
+  );
+  return result.meta.changes;
+}
+
+export async function updateCategory(db: D1Database, id: number, name: string): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE categories SET name = ? WHERE id = ? AND archived_at IS NULL`,
+    name,
+    id,
+  );
+  return result.meta.changes;
+}
+
+export async function updateMaterialType(
+  db: D1Database,
+  id: number,
+  name: string,
+  categoryId: number | null,
+): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE material_types SET name = ?, category_id = ? WHERE id = ? AND archived_at IS NULL`,
+    name,
+    categoryId,
+    id,
+  );
+  return result.meta.changes;
 }

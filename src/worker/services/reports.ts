@@ -502,3 +502,128 @@ export async function lowStockReport(db: D1Database): Promise<ReportTable> {
     })),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Inventario imprimible (totales por material y desglose por ubicación)
+// ---------------------------------------------------------------------------
+
+export interface InventoryPrintTotals {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  type: string;
+  total: number;
+  available: number;
+  unavailable: number;
+  minStock: number;
+  belowMinStock: boolean;
+  photoObjectId: number | null;
+}
+
+export interface InventoryPrintDetail {
+  code: string;
+  name: string;
+  location: string;
+  condition: string;
+  quantity: number;
+}
+
+export interface InventoryPrintReport {
+  totals: InventoryPrintTotals[];
+  detail: InventoryPrintDetail[];
+}
+
+interface InventoryTotalsDbRow {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  type: string;
+  total: number;
+  available: number;
+  min_stock: number;
+  photo_object_id: number | null;
+}
+
+interface InventoryDetailDbRow {
+  code: string;
+  name: string;
+  location: string;
+  cond: string;
+  quantity: number;
+}
+
+/**
+ * Datos del inventario completo para la vista imprimible.
+ *
+ * `totals` resume cada material (total, disponible, no disponible y mínimo);
+ * `detail` da el desglose por ubicación y condición. Van separados porque el
+ * documento los presenta en dos tablas: primero el resumen y después dónde
+ * está cada cosa.
+ */
+export async function inventoryPrintReport(db: D1Database): Promise<InventoryPrintReport> {
+  const [totals, detail] = await Promise.all([
+    all<InventoryTotalsDbRow>(
+      db,
+      `SELECT m.id AS id,
+              m.code AS code,
+              m.name AS name,
+              COALESCE(cat.name, '') AS category,
+              COALESCE(mt.name, '') AS type,
+              COALESCE(SUM(s.quantity), 0) AS total,
+              COALESCE(SUM(CASE WHEN mc.is_available = 1 THEN s.quantity ELSE 0 END), 0) AS available,
+              m.min_stock AS min_stock,
+              m.photo_object_id AS photo_object_id
+         FROM materials m
+         LEFT JOIN stock_levels s ON s.material_id = m.id
+         LEFT JOIN material_conditions mc ON mc.code = s.condition_code
+         LEFT JOIN categories cat ON cat.id = m.category_id
+         LEFT JOIN material_types mt ON mt.id = m.material_type_id
+        WHERE m.archived_at IS NULL
+        GROUP BY m.id
+        ORDER BY m.name, m.code
+        LIMIT ?`,
+      REPORT_LIMIT,
+    ),
+    all<InventoryDetailDbRow>(
+      db,
+      `SELECT m.code AS code,
+              m.name AS name,
+              COALESCE(l.name, '') AS location,
+              COALESCE(mc.name, s.condition_code, '') AS cond,
+              COALESCE(s.quantity, 0) AS quantity
+         FROM materials m
+         JOIN stock_levels s ON s.material_id = m.id
+         LEFT JOIN locations l ON l.id = s.location_id
+         LEFT JOIN material_conditions mc ON mc.code = s.condition_code
+        WHERE m.archived_at IS NULL
+        ORDER BY m.name, m.code, l.name, s.condition_code
+        LIMIT ?`,
+      REPORT_LIMIT,
+    ),
+  ]);
+
+  return {
+    totals: totals.map((row) => ({
+      id: row.id,
+      code: row.code,
+      name: row.name,
+      category: row.category,
+      type: row.type,
+      total: row.total,
+      available: row.available,
+      unavailable: row.total - row.available,
+      minStock: row.min_stock,
+      belowMinStock: row.total < row.min_stock,
+      photoObjectId: row.photo_object_id,
+    })),
+    detail: detail.map((row) => ({
+      code: row.code,
+      name: row.name,
+      location: row.location,
+      condition: row.cond,
+      quantity: row.quantity,
+    })),
+  };
+}

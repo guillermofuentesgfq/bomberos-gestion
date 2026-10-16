@@ -24,7 +24,7 @@ prueba, conservando las tablas de referencia.
 
 ```
 Test Files  12 passed (12)
-     Tests  127 passed (127)
+     Tests  136 passed (136)
 ```
 
 | Archivo | Qué cubre |
@@ -65,7 +65,12 @@ Test Files  12 passed (12)
 | Edición de inventario | ✅ cubierto (cambio parcial que conserva los campos no enviados, código duplicado → `409`, y `403` sin permiso de escritura) |
 | Foto de material | ✅ cubierto (se asigna, aparece en listado y detalle, y se quita con `null`) |
 | Catálogo de inventario | ✅ cubierto (alta de tipos y archivado de ubicaciones: la fila se conserva) |
+| Edición del catálogo | ✅ cubierto (renombrar ubicaciones con su descripción, categorías y tipos —asociando la categoría—, `409` con nombre repetido y `404` si la entrada no existe) |
 | Actas imprimibles | ✅ cubierto (el acta de entrega documenta la entrega **completa** aunque haya devoluciones parciales, con el membrete de la institución; la de baja lleva motivo, quién autoriza y la condición anterior; `404` si no existe) |
+| Icono del sitio | ✅ cubierto (se sirve desde el escudo configurado, `404` si no hay ninguno y `404` si el escudo es privado) |
+| Foto de portada | ✅ cubierto (se publica solo si el objeto es público; una portada privada no se expone) |
+| Informe imprimible del inventario | ✅ cubierto (totales por material, disponible y no disponible, bajo mínimo y desglose por ubicación y condición) |
+| Panel de resumen | ✅ cubierto (contadores reales de materiales y unidades) |
 
 ## Nota
 

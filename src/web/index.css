@@ -283,6 +283,22 @@ p {
 }
 
 /*
+ * Inventario general imprimible.
+ *
+ * El membrete se repite en cada página porque vive en el `<thead>` de esta
+ * tabla englobante: al paginar, el navegador repite el encabezado de grupo. El
+ * documento completo (título, tablas y firma) viaja en el único `<tbody>`.
+ */
+.inventory-sheet {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.inventory-sheet > tbody > tr > td {
+  padding: 0;
+}
+
+/*
  * Actas imprimibles (entrega y baja).
  *
  * El PDF lo produce el navegador desde el diálogo de impresión, así que `@page`
@@ -302,24 +318,29 @@ p {
 
   html,
   body,
-  .acta-page {
+  .acta-page,
+  .inventory-page {
     background: #ffffff !important;
     color: #000000 !important;
   }
 
-  .acta-page {
+  .acta-page,
+  .inventory-page {
     min-height: 0 !important;
     padding: 0 !important;
   }
 
   /* Fuerza impresión en claro dentro del documento, incluidos los tokens. */
   .acta-document,
-  .acta-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img) {
+  .acta-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img),
+  .inventory-document,
+  .inventory-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img) {
     background-color: transparent !important;
     color: #000000 !important;
   }
 
-  .acta-document {
+  .acta-document,
+  .inventory-document {
     background-color: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -328,21 +349,34 @@ p {
 
   /* Cualquier borde del documento (membrete, tabla, firmas) sale en negro. */
   .acta-document,
-  .acta-document * {
+  .acta-document *,
+  .inventory-document,
+  .inventory-document * {
     border-color: #000000 !important;
   }
 
-  /* Repite el encabezado de la tabla y evita cortes a mitad de fila o firma. */
-  .acta-document thead {
+  /*
+   * Repite los encabezados de tabla y evita cortes a mitad de fila, membrete o
+   * firma. En el inventario, `.inventory-sheet > thead` es el membrete que se
+   * repite en cada página y `.inventory-table thead` el encabezado de columnas
+   * de cada tabla de contenido.
+   */
+  .acta-document thead,
+  .inventory-sheet > thead,
+  .inventory-table thead {
     display: table-header-group;
   }
 
   .acta-table tr,
-  .acta-signature {
+  .acta-signature,
+  .inventory-table tr,
+  .inventory-member,
+  .inventory-signature {
     break-inside: avoid;
   }
 
-  .acta-document :where(h1, h2) {
+  .acta-document :where(h1, h2),
+  .inventory-document :where(h1, h2) {
     break-after: avoid;
   }
 }

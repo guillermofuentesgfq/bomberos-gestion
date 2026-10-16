@@ -289,6 +289,53 @@ describe('imágenes del sitio público', () => {
     const response = await api.request('POST', '/api/v1/files', { form, csrf: true });
     expect(response.status).toBe(422);
   });
+
+  it('la foto de portada se publica solo si es pública', async () => {
+    const api = await adminClient();
+    const publicId = await uploadPng(api, true);
+    await api.put('/api/v1/site/institution', { coverObjectId: publicId });
+
+    const anonymous = new ApiClient();
+    const site = await anonymous.get<{ institution: { cover: { url: string } | null } }>(
+      '/api/v1/site',
+    );
+    expect(site.body.data?.institution.cover?.url).toContain(`/api/v1/files/${publicId}`);
+
+    // Una portada privada no se expone aunque quede referenciada.
+    const privateId = await uploadPng(api, false);
+    await api.put('/api/v1/site/institution', { coverObjectId: privateId });
+    const after = await anonymous.get<{ institution: { cover: { url: string } | null } }>(
+      '/api/v1/site',
+    );
+    expect(after.body.data?.institution.cover).toBeNull();
+  });
+
+  it('el icono del sitio se sirve desde el escudo configurado', async () => {
+    const anonymous = new ApiClient();
+
+    // Sin escudo configurado no hay icono.
+    const before = await anonymous.request('GET', '/favicon.ico');
+    expect(before.status).toBe(404);
+
+    const api = await adminClient();
+    const objectId = await uploadPng(api, true);
+    await api.put('/api/v1/site/institution', { shieldObjectId: objectId });
+
+    const icon = await anonymous.request('GET', '/favicon.ico');
+    expect(icon.status).toBe(200);
+    expect(icon.headers.get('content-type')).toContain('image/png');
+    expect(icon.bytes?.byteLength ?? 0).toBeGreaterThan(0);
+
+    // El icono de iOS se sirve igual.
+    const touch = await anonymous.request('GET', '/apple-touch-icon.png');
+    expect(touch.status).toBe(200);
+
+    // Un escudo privado no se sirve como icono (lo pide el navegador sin sesión).
+    const privateId = await uploadPng(api, false);
+    await api.put('/api/v1/site/institution', { shieldObjectId: privateId });
+    const denied = await anonymous.request('GET', '/favicon.ico');
+    expect(denied.status).toBe(404);
+  });
 });
 
 describe('texto enriquecido del contenido', () => {

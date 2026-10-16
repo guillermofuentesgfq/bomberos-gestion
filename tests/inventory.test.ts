@@ -343,6 +343,95 @@ describe('edición de materiales y catálogo', () => {
     });
     expect(denied.status).toBe(403);
   });
+
+  it('edita una ubicación: nombre y descripción', async () => {
+    const { api, bodegaId } = await bootstrap(1);
+
+    const before = await api.get<{ locations: { id: number; name: string; description: string | null }[] }>(
+      '/api/v1/inventory/catalog',
+    );
+    expect(before.body.data?.locations.find((l) => l.id === bodegaId)?.name).toBe('Bodega');
+
+    const renamed = await api.put(`/api/v1/inventory/catalog/locations/${bodegaId}`, {
+      name: 'Bodega central',
+      description: 'Piso 1, sector norte',
+    });
+    expect(renamed.status).toBe(200);
+
+    const after = await api.get<{ locations: { id: number; name: string; description: string | null }[] }>(
+      '/api/v1/inventory/catalog',
+    );
+    const row = after.body.data?.locations.find((l) => l.id === bodegaId);
+    expect(row?.name).toBe('Bodega central');
+    expect(row?.description).toBe('Piso 1, sector norte');
+  });
+
+  it('renombra categorías y rechaza nombres repetidos', async () => {
+    const { api } = await bootstrap(1);
+
+    const catalog = await api.get<{ categories: { id: number; name: string }[] }>(
+      '/api/v1/inventory/catalog',
+    );
+    const categoryId = catalog.body.data?.categories[0]?.id ?? 0;
+    expect(categoryId).toBeGreaterThan(0);
+
+    const renamed = await api.put(`/api/v1/inventory/catalog/categories/${categoryId}`, {
+      name: 'Equipo de protección personal',
+    });
+    expect(renamed.status).toBe(200);
+
+    const after = await api.get<{ categories: { id: number; name: string }[] }>(
+      '/api/v1/inventory/catalog',
+    );
+    expect(after.body.data?.categories.find((c) => c.id === categoryId)?.name).toBe(
+      'Equipo de protección personal',
+    );
+
+    await api.post('/api/v1/inventory/catalog/categories', { name: 'Otra categoría' });
+    const conflict = await api.put(`/api/v1/inventory/catalog/categories/${categoryId}`, {
+      name: 'Otra categoría',
+    });
+    expect(conflict.status).toBe(409);
+  });
+
+  it('edita un tipo de material y lo asocia a una categoría', async () => {
+    const { api } = await bootstrap(1);
+
+    const catalog = await api.get<{ categories: { id: number }[] }>('/api/v1/inventory/catalog');
+    const categoryId = catalog.body.data?.categories[0]?.id ?? 0;
+
+    const created = await api.post<{ id: number }>('/api/v1/inventory/catalog/material-types', {
+      name: 'Cascos',
+    });
+    const typeId = created.body.data?.id ?? 0;
+    expect(typeId).toBeGreaterThan(0);
+
+    const edited = await api.put(`/api/v1/inventory/catalog/material-types/${typeId}`, {
+      name: 'Cascos estructurales',
+      categoryId,
+    });
+    expect(edited.status).toBe(200);
+
+    const after = await api.get<{
+      materialTypes: { id: number; name: string; category_id: number | null }[];
+    }>('/api/v1/inventory/catalog');
+    const row = after.body.data?.materialTypes.find((t) => t.id === typeId);
+    expect(row?.name).toBe('Cascos estructurales');
+    expect(row?.category_id).toBe(categoryId);
+  });
+
+  it('responde 404 al editar una entrada que no existe', async () => {
+    const { api } = await bootstrap(1);
+
+    const location = await api.put('/api/v1/inventory/catalog/locations/9999', { name: 'Fantasma' });
+    expect(location.status).toBe(404);
+
+    const category = await api.put('/api/v1/inventory/catalog/categories/9999', { name: 'Fantasma' });
+    expect(category.status).toBe(404);
+
+    const type = await api.put('/api/v1/inventory/catalog/material-types/9999', { name: 'Fantasma' });
+    expect(type.status).toBe(404);
+  });
 });
 
 describe('actas imprimibles', () => {
@@ -453,5 +542,73 @@ describe('actas imprimibles', () => {
 
     const sinBaja = await api.get('/api/v1/inventory/writeoffs/99999/acta');
     expect(sinBaja.status).toBe(404);
+  });
+});
+
+describe('informes', () => {
+  it('el inventario imprimible resume totales y desglose por ubicación', async () => {
+    const { api, materialId, bodegaId, salaId } = await bootstrap(3);
+    await api.put('/api/v1/site/institution', { name: 'Bomba Carlos Collins' });
+
+    // Un traslado para que el desglose tenga dos ubicaciones.
+    const transfer = await api.post('/api/v1/inventory/transfers', {
+      materialId,
+      fromLocationId: bodegaId,
+      toLocationId: salaId,
+      conditionCode: 'operativo',
+      quantity: 1,
+    });
+    expect(transfer.status).toBe(201);
+
+    const report = await api.get<{
+      institution: { name: string };
+      generatedAt: string;
+      totals: {
+        code: string;
+        name: string;
+        total: number;
+        available: number;
+        unavailable: number;
+        minStock: number;
+        belowMinStock: boolean;
+        photoObjectId: number | null;
+      }[];
+      detail: { name: string; location: string; quantity: number }[];
+    }>('/api/v1/reports/inventory');
+
+    expect(report.status).toBe(200);
+    expect(report.body.data?.institution.name).toBe('Bomba Carlos Collins');
+    expect(report.body.data?.generatedAt).toBeTruthy();
+
+    const totals = report.body.data?.totals[0];
+    expect(totals?.total).toBe(3);
+    expect(totals?.available).toBe(3);
+    expect(totals?.unavailable).toBe(0);
+    expect(totals?.minStock).toBe(1);
+    expect(totals?.belowMinStock).toBe(false);
+
+    const locations = (report.body.data?.detail ?? []).map((row) => row.location).sort();
+    expect(locations).toEqual(['Bodega', 'Sala']);
+  });
+
+  it('el panel de resumen devuelve los contadores', async () => {
+    const { api } = await bootstrap(4);
+
+    const summary = await api.get<{ materials: number; units: number }>('/api/v1/reports/summary');
+    expect(summary.status).toBe(200);
+    expect(summary.body.data?.materials).toBe(1);
+    expect(summary.body.data?.units).toBe(4);
+  });
+
+  it('marca bajo mínimo cuando las existencias no alcanzan el mínimo', async () => {
+    const { api, materialId } = await bootstrap(2);
+    await api.put(`/api/v1/inventory/materials/${materialId}`, { minStock: 5 });
+
+    const report = await api.get<{ totals: { total: number; minStock: number; belowMinStock: boolean }[] }>(
+      '/api/v1/reports/inventory',
+    );
+    expect(report.body.data?.totals[0]?.total).toBe(2);
+    expect(report.body.data?.totals[0]?.minStock).toBe(5);
+    expect(report.body.data?.totals[0]?.belowMinStock).toBe(true);
   });
 });

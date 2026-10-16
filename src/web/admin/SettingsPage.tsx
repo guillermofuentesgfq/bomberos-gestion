@@ -146,6 +146,7 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
           corpsInfo: institution.corpsInfo,
           shieldObjectId: institution.shieldObjectId,
           logoObjectId: institution.logoObjectId,
+          coverObjectId: institution.coverObjectId,
           primaryColor: institution.primaryColor,
           secondaryColor: institution.secondaryColor,
           address: institution.address,
@@ -450,6 +451,14 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
               onChange={(objectId) => setInstitution({ ...institution, logoObjectId: objectId })}
             />
           </div>
+
+          <ImageUploader
+            csrfToken={csrfToken}
+            label="Foto de portada"
+            hint="Se muestra como fondo de la portada del sitio."
+            value={institution.coverObjectId}
+            onChange={(objectId) => setInstitution({ ...institution, coverObjectId: objectId })}
+          />
 
           <div className="grid gap-5 md:grid-cols-2">
             <TextField
