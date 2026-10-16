@@ -1,8 +1,9 @@
 import { SessionProvider, useSession } from './lib/session';
-import { RouterProvider } from './lib/router';
+import { RouterProvider, useRoute } from './lib/router';
 import { DashboardPage } from './pages/DashboardPage';
 import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
+import { PublicApp } from './pages/public/PublicApp';
 
 /** Enlace para saltar al contenido principal con el teclado. */
 function SkipLink() {
@@ -28,7 +29,7 @@ function LoadingScreen() {
   );
 }
 
-/** Decide la vista según el estado de la instalación y de la sesión. */
+/** Decide la vista del panel según el estado de la instalación y de la sesión. */
 function SessionGate() {
   const { status, user, needsSetup } = useSession();
 
@@ -38,18 +39,39 @@ function SessionGate() {
   return <DashboardPage />;
 }
 
+/** Rutas que pertenecen al panel administrativo. */
+const ADMIN_PREFIXES = ['/admin', '/panel', '/login', '/setup'];
+
+function isAdminPath(path: string): boolean {
+  const clean = path.split('?')[0] ?? path;
+  return ADMIN_PREFIXES.some((prefix) => clean === prefix || clean.startsWith(`${prefix}/`));
+}
+
+/** Panel administrativo: asistente → login → panel. */
+function AdminApp() {
+  return (
+    <SessionProvider>
+      <SkipLink />
+      <SessionGate />
+    </SessionProvider>
+  );
+}
+
+/** Decide entre el panel (`/admin`, `/login`…) y el sitio público. */
+function AppRoutes() {
+  const { path } = useRoute();
+  if (isAdminPath(path)) return <AdminApp />;
+  return <PublicApp />;
+}
+
 /**
- * Composición raíz: sesión + router. La vista la determina el estado de sesión
- * (asistente → login → panel); las páginas usan el router para reflejar la
- * navegación en la URL.
+ * Composición raíz: router + superficie activa. El panel conserva su flujo de
+ * autenticación; el resto de rutas sirven el sitio público.
  */
 export function App() {
   return (
-    <SessionProvider>
-      <RouterProvider>
-        <SkipLink />
-        <SessionGate />
-      </RouterProvider>
-    </SessionProvider>
+    <RouterProvider>
+      <AppRoutes />
+    </RouterProvider>
   );
 }

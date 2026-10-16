@@ -6,6 +6,9 @@ import { authRoutes } from './auth';
 import { inventoryRoutes } from './inventory';
 import { personRoutes } from './persons';
 import { filesRoutes } from './files';
+import { reportsRoutes } from './reports';
+import { publicRoutes } from './public';
+import { contentRoutes } from './content';
 
 /** Router de la API v1. Aquí se montan los módulos por dominio. */
 export const api = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -35,3 +38,7 @@ api.route('/auth', authRoutes);
 api.route('/inventory', inventoryRoutes);
 api.route('/persons', personRoutes);
 api.route('/files', filesRoutes);
+api.route('/reports', reportsRoutes);
+// Sitio público (sin autenticación) y administración del contenido.
+api.route('/', publicRoutes);
+api.route('/site', contentRoutes);

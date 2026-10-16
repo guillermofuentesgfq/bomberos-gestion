@@ -4,6 +4,7 @@ import type { Env, Variables } from './lib/env';
 import { AppError } from './lib/errors';
 import { fail } from './lib/http';
 import { api } from './routes';
+import { seoRoutes } from './routes/public';
 
 /** Tamaño máximo del cuerpo para endpoints JSON (las subidas usan su propio límite). */
 const MAX_JSON_BYTES = 1 * 1024 * 1024; // 1 MB
@@ -65,6 +66,9 @@ app.route('/api/v1', api);
 app.all('/api/*', () => {
   throw AppError.notFound('Endpoint no encontrado.');
 });
+
+// --- SEO del sitio público (sitemap.xml, robots.txt) ------------------------
+app.route('/', seoRoutes);
 
 // --- Fallback a la SPA (assets) --------------------------------------------
 // En producción, Cloudflare sirve los assets sin invocar el Worker salvo en

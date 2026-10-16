@@ -28,6 +28,28 @@ el proyecto usa [Versionado Semántico](https://semver.org/lang/es/).
 - Documentación: README, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, TESTING,
   DEPLOYMENT, BACKUP_AND_RESTORE y CHANGELOG.
 - Licencia MIT.
+- **Seguridad desde el primer despliegue:** contraseñas PBKDF2-SHA256 con sal y
+  *pepper*; sesiones opacas revocables en cookie `HttpOnly`; CSRF obligatorio en
+  operaciones con estado; autorización por permiso en el servidor; limitación de
+  intentos con bloqueo; auditoría saneada; inicialización segura del primer
+  administrador.
+- **Inventario y personal:** materiales, existencias por ubicación y condición,
+  unidades individuales, lotes, traslados, cambios de condición, bajas,
+  mantenimiento, personas con historial de cargos, y **asignaciones con
+  devoluciones parciales**.
+- **Integridad:** cada operación en un `batch()` atómico; la no-negatividad se
+  garantiza con `CHECK (quantity >= 0)` y las devoluciones con
+  `CHECK (returned_qty <= quantity)`; idempotencia por `Idempotency-Key`.
+- **Almacenamiento R2 privado** con validación real de imágenes por bytes y
+  rechazo de contenido activo (SVG).
+- **Sitio web público configurable y CMS:** configuración institucional,
+  secciones activables/ordenables, páginas, noticias, actividades y galerías con
+  borrador/publicar/despublicar/archivar; `sitemap.xml` y `robots.txt`.
+- **Informes y exportación:** siete informes y exportación a `.xlsx` real
+  (generador OOXML propio, sin dependencias) con protección anti-inyección de
+  fórmulas.
+- **Pruebas de integración en el runtime de Workers** con D1 y R2 reales
+  (91 pruebas).
 
 ### Notas
 
