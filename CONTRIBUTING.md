@@ -72,9 +72,15 @@ Estas ya han costado tiempo. Si vas a tocar alguna de estas zonas, léelas antes
 
 ### Rutas y configuración
 
-- **`run_worker_first` en `wrangler.jsonc`.** Los *assets* ganan al Worker, así que
-  una ruta nueva con pinta de archivo estático (`/favicon.ico`, `/sitemap.xml`…)
-  hay que añadirla a esa lista o no llegará nunca al Worker.
+- **`run_worker_first` en `wrangler.jsonc`.** Los *assets* ganan al Worker salvo
+  en las rutas listadas, así que una ruta nueva con pinta de archivo estático
+  (`/favicon.ico`, `/sitemap.xml`…) hay que añadirla a esa lista o no llegará
+  nunca al Worker. El binding `assets.binding: "ASSETS"` es obligatorio para que
+  el respaldo de la SPA pueda servir el documento desde el Worker: sin él,
+  `env.ASSETS` es `undefined` y la portada responde 500. Y al reenviar la
+  respuesta de los assets hay que copiarla (`new Response(response.body,
+  response)`): sus cabeceras son inmutables y el middleware no podría añadir las
+  de seguridad.
 - **`updateInstitutionConfig` usa una lista blanca explícita de claves.** Una clave
   nueva se ignora **en silencio** si no se añade ahí.
 - `wrangler` lee **`.dev.vars`**, no `.env`.

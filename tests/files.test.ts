@@ -84,8 +84,7 @@ describe('almacenamiento de archivos', () => {
     expect(await countRows('storage_objects')).toBe(0);
   });
 
-  it('exige sesión para subir archivos', async () => {
-    const api = await adminClient();
+  it('exige sesión para subir archivos', async () => {    const api = await adminClient();
     const anonymous = new ApiClient();
     const response = await anonymous.request('POST', '/api/v1/files', { form: pngForm(), csrf: true });
     expect(response.status).toBe(401);

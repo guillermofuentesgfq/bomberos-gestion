@@ -72,9 +72,15 @@ app.all('/api/*', () => {
 app.route('/', seoRoutes);
 
 // --- Fallback a la SPA (assets) --------------------------------------------
-// En producción, Cloudflare sirve los assets sin invocar el Worker salvo en
-// /api/*. Este fallback cubre el desarrollo local y rutas no-API.
-app.get('*', (c) => c.env.ASSETS.fetch(c.req.raw));
+// El documento de la SPA lo sirve el Worker (`/` e `/index.html` están en
+// `run_worker_first`), que lo toma del binding `ASSETS`. Las demás rutas las
+// sirve la capa de assets directamente.
+app.get('*', async (c) => {
+  const response = await c.env.ASSETS.fetch(c.req.raw);
+  // Las cabeceras de la respuesta de los assets son inmutables: se copia a una
+  // respuesta propia para que el middleware de seguridad pueda añadir las suyas.
+  return new Response(response.body, response);
+});
 
 // --- Manejo uniforme de errores --------------------------------------------
 app.onError((err, c) => {

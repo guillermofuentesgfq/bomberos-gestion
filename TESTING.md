@@ -23,8 +23,8 @@ prueba, conservando las tablas de referencia.
 ## Estado actual (real)
 
 ```
-Test Files  14 passed (14)
-     Tests  174 passed (174)
+Test Files  15 passed (15)
+     Tests  176 passed (176)
 ```
 
 | Archivo | Qué cubre |
@@ -41,6 +41,7 @@ Test Files  14 passed (14)
 | `tests/inventory.test.ts` | integridad de existencias, entregas, devoluciones parciales, idempotencia, concurrencia, inyección SQL, **edición de materiales, foto privada, catálogo y actas imprimibles de entrega y baja** |
 | `tests/files.test.ts` | privacidad de archivos y rechazo de contenido activo |
 | `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo (contenido y textos institucionales)** |
+| `tests/document.test.ts` | el documento de la SPA se sirve desde el Worker con las cabeceras de seguridad y el respaldo de rutas de cliente funciona |
 | `tests/maintenance.test.ts` | limpieza programada (sesiones, intentos de ingreso y reservas de idempotencia caducadas) y acotado del `user-agent` |
 | `tests/users.test.ts` | alta, edición, roles, contraseña temporal, desbloqueo y archivado de usuarios; **protecciones para no quedarse sin administrador** y control de permisos |
 
