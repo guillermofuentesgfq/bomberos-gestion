@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
@@ -7,6 +7,7 @@ import { readJson } from '../lib/validate';
 import { isUniqueViolation } from '../lib/sql';
 import { requireAuth, requireCsrf, requirePermission } from '../security/middleware';
 import { actorFrom } from '../security/actor';
+import { logAudit } from '../security/audit';
 import { CONDITION_CODES, type ConditionCode } from '../../shared/inventory';
 import * as catalog from '../repositories/catalog';
 import * as materials from '../repositories/materials';
@@ -27,6 +28,30 @@ import { withIdempotency } from '../services/idempotency';
 type AppEnv = { Bindings: Env; Variables: Variables };
 
 export const inventoryRoutes = new Hono<AppEnv>();
+
+/**
+ * Audita una mutación del catálogo. El catálogo se archiva y se renombra, y
+ * estas rutas no auditaban nada (a diferencia del resto de mutaciones del
+ * sistema): sin esta fila no quedaba rastro de quién cambió el catálogo.
+ */
+async function auditCatalog(
+  c: Context<AppEnv>,
+  action: 'created' | 'updated' | 'archived',
+  table: string,
+  entityId: number,
+  name?: string,
+): Promise<void> {
+  const actor = actorFrom(c);
+  await logAudit(c.env.DB, {
+    actorUserId: actor.userId,
+    actorLabel: actor.label,
+    action: `inventory.catalog_${action}`,
+    entityType: 'catalog',
+    entityId,
+    detail: { table, ...(name === undefined ? {} : { name }) },
+    ipHash: c.get('ipHash'),
+  });
+}
 
 const conditionSchema = z.enum(CONDITION_CODES);
 
@@ -61,6 +86,7 @@ inventoryRoutes.post('/catalog/locations', requireAuth, requireCsrf, requirePerm
   );
   try {
     const id = await catalog.insertLocation(c.env.DB, body.name, body.description ?? null);
+    await auditCatalog(c, 'created', 'locations', id, body.name);
     return ok(c, { id }, 201);
   } catch (error) {
     if (isUniqueViolation(error)) throw AppError.conflict('Esa ubicación ya existe.');
@@ -75,6 +101,7 @@ inventoryRoutes.post('/catalog/categories', requireAuth, requireCsrf, requirePer
   );
   try {
     const id = await catalog.insertCategory(c.env.DB, body.name);
+    await auditCatalog(c, 'created', 'categories', id, body.name);
     return ok(c, { id }, 201);
   } catch (error) {
     if (isUniqueViolation(error)) throw AppError.conflict('Esa categoría ya existe.');
@@ -97,6 +124,7 @@ inventoryRoutes.post(
     );
     try {
       const id = await catalog.insertMaterialType(c.env.DB, body.name, body.categoryId ?? null);
+      await auditCatalog(c, 'created', 'material_types', id, body.name);
       return ok(c, { id }, 201);
     } catch (error) {
       if (isUniqueViolation(error)) {
@@ -117,6 +145,7 @@ inventoryRoutes.delete(
   async (c) => {
     const id = parseId(c.req.param('id'), 'ubicación');
     await catalog.archiveCatalogEntry(c.env.DB, 'locations', id);
+    await auditCatalog(c, 'archived', 'locations', id);
     return ok(c, { archived: true });
   },
 );
@@ -129,6 +158,7 @@ inventoryRoutes.delete(
   async (c) => {
     const id = parseId(c.req.param('id'), 'categoría');
     await catalog.archiveCatalogEntry(c.env.DB, 'categories', id);
+    await auditCatalog(c, 'archived', 'categories', id);
     return ok(c, { archived: true });
   },
 );
@@ -141,6 +171,7 @@ inventoryRoutes.delete(
   async (c) => {
     const id = parseId(c.req.param('id'), 'tipo de material');
     await catalog.archiveCatalogEntry(c.env.DB, 'material_types', id);
+    await auditCatalog(c, 'archived', 'material_types', id);
     return ok(c, { archived: true });
   },
 );
@@ -171,6 +202,7 @@ inventoryRoutes.put(
         body.description ?? null,
       );
       if (changes === 0) throw AppError.notFound('Ubicación no encontrada.');
+      await auditCatalog(c, 'updated', 'locations', id, body.name);
       return ok(c, { updated: true });
     } catch (error) {
       if (isUniqueViolation(error)) throw AppError.conflict('Ya existe una ubicación con ese nombre.');
@@ -190,6 +222,7 @@ inventoryRoutes.put(
     try {
       const changes = await catalog.updateCategory(c.env.DB, id, body.name);
       if (changes === 0) throw AppError.notFound('Categoría no encontrada.');
+      await auditCatalog(c, 'updated', 'categories', id, body.name);
       return ok(c, { updated: true });
     } catch (error) {
       if (isUniqueViolation(error)) throw AppError.conflict('Ya existe una categoría con ese nombre.');
@@ -220,6 +253,7 @@ inventoryRoutes.put(
         body.categoryId ?? null,
       );
       if (changes === 0) throw AppError.notFound('Tipo de material no encontrado.');
+      await auditCatalog(c, 'updated', 'material_types', id, body.name);
       return ok(c, { updated: true });
     } catch (error) {
       if (isUniqueViolation(error)) {

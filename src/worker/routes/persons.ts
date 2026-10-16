@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
@@ -9,6 +9,7 @@ import { isUniqueViolation } from '../lib/sql';
 import { nowIso } from '../lib/time';
 import { requireAuth, requireCsrf, requirePermission } from '../security/middleware';
 import { actorFrom } from '../security/actor';
+import { logAudit } from '../security/audit';
 import { CONDITION_CODES } from '../../shared/inventory';
 import * as personsRepo from '../repositories/persons';
 import * as assignmentsRepo from '../repositories/assignments';
@@ -21,6 +22,32 @@ import { withIdempotency } from '../services/idempotency';
 type AppEnv = { Bindings: Env; Variables: Variables };
 
 export const personRoutes = new Hono<AppEnv>();
+
+/**
+ * Audita una mutación de personal o de su catálogo.
+ *
+ * Las rutas de personas no auditaban ninguna de sus mutaciones (a diferencia de
+ * las de usuarios, contenido, archivos, inventario e informes): las fichas —con
+ * RUT, fecha de nacimiento, contacto de emergencia y foto— podían crearse y
+ * reescribirse sin dejar rastro. Esta fila cierra esa laguna.
+ */
+async function auditPerson(
+  c: Context<AppEnv>,
+  action: string,
+  entityId: number,
+  detail: Record<string, unknown> = {},
+): Promise<void> {
+  const actor = actorFrom(c);
+  await logAudit(c.env.DB, {
+    actorUserId: actor.userId,
+    actorLabel: actor.label,
+    action,
+    entityType: 'person',
+    entityId,
+    detail,
+    ipHash: c.get('ipHash'),
+  });
+}
 
 const idParam = z.coerce.number().int().positive();
 
@@ -111,6 +138,7 @@ for (const entry of [
       const body = await readJson(c, catalogNameSchema);
       try {
         const id = await entry.insert(c.env.DB, body.name);
+        await auditPerson(c, `persons.catalog_${entry.segment}_created`, id, { name: body.name });
         return ok(c, { id }, 201);
       } catch (error) {
         catalogConflict(error, duplicate);
@@ -129,6 +157,7 @@ for (const entry of [
       try {
         const changes = await entry.update(c.env.DB, id, body.name);
         if (changes === 0) throw AppError.notFound(missing);
+        await auditPerson(c, `persons.catalog_${entry.segment}_updated`, id, { name: body.name });
         return ok(c, { updated: true });
       } catch (error) {
         catalogConflict(error, duplicate);
@@ -145,6 +174,7 @@ for (const entry of [
       const id = parseId(c.req.param('id'), entry.label);
       const changes = await entry.archive(c.env.DB, id);
       if (changes === 0) throw AppError.notFound(missing);
+      await auditPerson(c, `persons.catalog_${entry.segment}_archived`, id);
       return ok(c, { archived: true });
     },
   );
@@ -183,6 +213,7 @@ personRoutes.post('/', requireAuth, requireCsrf, requirePermission('persons.writ
     photoObjectId: body.photoObjectId ?? null,
     isActive: body.isActive,
   });
+  await auditPerson(c, 'persons.created', id, { fullName: body.fullName });
   return ok(c, { id }, 201);
 });
 
@@ -338,6 +369,7 @@ personRoutes.put('/:id', requireAuth, requireCsrf, requirePermission('persons.wr
     photoObjectId: body.photoObjectId ?? null,
     isActive: body.isActive,
   });
+  await auditPerson(c, 'persons.updated', id, { fullName: body.fullName });
   return ok(c, { updated: true });
 });
 

@@ -700,6 +700,44 @@ describe('catálogo de personas y ficha', () => {
   // calidades vienen sembradas. Por eso cada caso usa nombres propios: si no,
   // el `UNIQUE` del nombre devuelve 409 y la prueba pasaría por el motivo
   // equivocado.
+  it('audita las mutaciones de personal y de sus catálogos', async () => {
+    const { api } = await bootstrap(1);
+    // El propio bootstrap crea una persona, dos ubicaciones y una categoría (y
+    // ya las audita), así que se mide el incremento en vez del total.
+    const before = {
+      created: await countRows('audit_log', "action = 'persons.created'"),
+      updated: await countRows('audit_log', "action = 'persons.updated'"),
+      quality: await countRows('audit_log', "action = 'persons.catalog_qualities_created'"),
+      catalog: await countRows('audit_log', "action = 'inventory.catalog_created'"),
+    };
+
+    const created = await api.post<{ id: number }>('/api/v1/persons', {
+      fullName: 'Integrante Auditado',
+      rut: '22.222.222-2',
+    });
+    expect(created.status).toBe(201);
+    const personId = created.body.data?.id ?? 0;
+
+    await api.put(`/api/v1/persons/${personId}`, {
+      fullName: 'Integrante Auditado (editado)',
+      rut: '22.222.222-2',
+    });
+    await api.post('/api/v1/persons/catalog/qualities', { name: 'Calidad de prueba auditada' });
+    await api.post('/api/v1/inventory/catalog/locations', { name: 'Bodega auditada' });
+
+    // Cada mutación deja su fila: sin esto, las fichas de personal con RUT,
+    // fecha de nacimiento, contacto de emergencia y foto se reescribían sin
+    // rastro de quién lo hizo.
+    expect(await countRows('audit_log', "action = 'persons.created'")).toBe(before.created + 1);
+    expect(await countRows('audit_log', "action = 'persons.updated'")).toBe(before.updated + 1);
+    expect(await countRows('audit_log', "action = 'persons.catalog_qualities_created'")).toBe(
+      before.quality + 1,
+    );
+    expect(await countRows('audit_log', "action = 'inventory.catalog_created'")).toBe(
+      before.catalog + 1,
+    );
+  });
+
   it('gestiona cargos y calidades: crear, editar, duplicar y archivar', async () => {
     const { api } = await bootstrap(1);
 

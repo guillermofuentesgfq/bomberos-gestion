@@ -71,16 +71,31 @@ así:
    traduce esa violación a un error de negocio («No hay existencias
    suficientes»). El mismo patrón protege las devoluciones parciales mediante
    `CHECK (returned_qty <= quantity)` en `assignment_lines`.
-2. **`db.batch()`.** Todas las escrituras de una operación (existencias,
-   asignación, movimiento, auditoría) van en un solo batch, que es transaccional:
-   si una sentencia falla, se revierte el conjunto.
+2. **`db.batch()`.** Las escrituras de una operación (existencias, asignación,
+   movimiento) van en un solo batch, que es transaccional: si una sentencia
+   falla, se revierte el conjunto. La **fila de auditoría se escribe aparte**,
+   después del lote y como sentencia tolerante a fallos (ver más abajo): no
+   forma parte de la transacción y una operación ya confirmada puede quedarse
+   sin su fila de auditoría si esa escritura falla.
 3. **Restricciones de esquema.** Claves foráneas, `CHECK (quantity >= 0)`,
-   `UNIQUE` en series y claves de idempotencia.
+   `UNIQUE` en series y claves de idempotencia. Como el `CHECK` solo se evalúa
+   sobre la fila que el `UPDATE` toca, **toda resta de existencias asegura antes
+   la fila origen** dentro del mismo lote: sin ella, el descuento no afectaría
+   ninguna fila y el lote confirmaría una operación que no descontó nada.
 4. **Idempotencia.** Las operaciones sensibles aceptan una `Idempotency-Key`
-   que se registra; un reintento devuelve la respuesta original en lugar de
-   duplicar el efecto.
+   ligada al titular que la usa: un reintento del mismo titular devuelve la
+   respuesta original, la clave de otro titular se rechaza, y una operación que
+   falla libera la reserva para poder reintentarse.
 5. **Serialización.** Cada base D1 es mono-hilo, de modo que las escrituras se
    ejecutan una a una.
+
+> **La auditoría es tolerante a fallos, a propósito.** Se registra después de
+> confirmar la operación de negocio y un error al escribirla no tumba la
+> operación (solo deja un aviso en el log del Worker). Es el compromiso elegido
+> para no perder una baja o una entrega por un fallo del registro; implica que,
+> si esa escritura falla, la operación queda sin su fila de auditoría. Todas las
+> mutaciones relevantes de usuarios, personal, contenido, archivos, inventario e
+> informes escriben su fila.
 
 ### Archivos privados
 
