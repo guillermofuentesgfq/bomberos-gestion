@@ -63,22 +63,71 @@ datos en [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md).
 
 ## Puesta en marcha (desarrollo)
 
+Requiere **Node.js 22 o superior**. Si usas `nodenv`, el repositorio fija la
+versión con `.node-version`.
+
 ```bash
 git clone git@github-personal:guillermofuentesgfq/bomberos-gestion.git
 cd bomberos-gestion
 npm install
 
-# Aplicar las migraciones en la base D1 local
+# 1) Crear los secretos locales y rellenar los valores (no pueden ir vacíos)
+cp .env.example .dev.vars
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"  # ejecútalo 2 veces
+# pega cada resultado en AUTH_PASSWORD_PEPPER y AUTH_SESSION_SECRET,
+# y define un BOOTSTRAP_TOKEN a tu elección.
+
+# 2) Aplicar las migraciones en la base D1 local
 npm run db:migrate:local
 
-# API + assets en http://127.0.0.1:8787
-npm run dev:api
-
-# En otra terminal, servidor de desarrollo de la SPA (proxy /api)
-npm run dev
+# 3) Compilar la SPA y levantar API + sitio en el mismo origen
+npm run start          # equivale a: npm run build && wrangler dev --local
 ```
 
-Comprueba el estado del servicio en `http://127.0.0.1:8787/api/v1/health`.
+Abre <http://127.0.0.1:8787>. La comprobación del servicio está en
+<http://127.0.0.1:8787/api/v1/health>.
+
+### Crear el usuario inicial
+
+En una instalación nueva no existe ningún usuario. Al abrir la aplicación se
+muestra el **asistente de primer arranque**:
+
+1. Entra en <http://127.0.0.1:8787/setup>.
+2. Pega el **token de inicialización**: es el valor de `BOOTSTRAP_TOKEN` que
+   definiste en `.dev.vars` (en desarrollo viene de ejemplo como
+   `dev-bootstrap-token`).
+3. Elige usuario, nombre para mostrar y una contraseña de **al menos 12
+   caracteres**.
+4. Al confirmar, la instalación crea el **administrador** y deja la sesión
+   iniciada. El asistente solo funciona mientras no exista ningún usuario.
+
+> Tras crear el administrador, **elimina o cambia `BOOTSTRAP_TOKEN`**: en
+> producción se define con `wrangler secret put BOOTSTRAP_TOKEN` y se retira
+> después del alta.
+
+### Volver a empezar de cero
+
+```bash
+npm run local:reset    # borra la base D1 LOCAL y reaplica las migraciones
+```
+
+Solo afecta a la base local de desarrollo.
+
+### Desarrollo con recarga en caliente
+
+```bash
+npm run dev:api        # API en http://127.0.0.1:8787
+npm run dev            # SPA con recarga en http://127.0.0.1:5173 (proxy a /api)
+```
+
+### Otros comandos
+
+```bash
+npm run typecheck      # TypeScript estricto
+npm run test           # pruebas (runtime de Workers)
+npm run build          # compila Worker + SPA
+npm run docs:check     # documentación exigida
+```
 
 ## Despliegue
 
