@@ -75,6 +75,25 @@ export const SCOPE_PERMISSIONS: Record<
   person: { read: 'persons.read', write: 'persons.write' },
 };
 
+/**
+ * Tope agregado del almacén (suma de bytes de todas las filas).
+ *
+ * Los topes por archivo (5 MiB) no acotan el conjunto: sin un límite agregado,
+ * una cuenta con permiso de subida podía acumular imágenes sin fin. Cuenta
+ * también las archivadas, porque archivar no borra los bytes de R2 (y por tanto
+ * tampoco libera cuota). El operador puede ajustarlo a su plan.
+ */
+export const MAX_TOTAL_STORAGE_BYTES = 1024 * 1024 * 1024; // 1 GiB
+
+/** Suma de bytes almacenados (incluye los objetos archivados). */
+async function totalStoredBytes(db: D1Database): Promise<number> {
+  const row = await first<{ total: number | null }>(
+    db,
+    `SELECT COALESCE(SUM(byte_size), 0) AS total FROM storage_objects`,
+  );
+  return row?.total ?? 0;
+}
+
 /** SHA-256 hexadecimal sobre los bytes crudos (no sobre una codificación). */
 async function sha256BytesHex(bytes: Uint8Array<ArrayBuffer>): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', bytes);
@@ -105,6 +124,14 @@ export async function storeObject(env: Env, input: StoreObjectInput): Promise<St
   const objectKey = `objects/${randomId(16)}.${extensionForImageType(validation.type)}`;
   const byteSize = input.bytes.byteLength;
   const checksum = await sha256BytesHex(input.bytes);
+
+  // Tope agregado, antes de escribir en R2 (nada de bytes huérfanos).
+  const stored = await totalStoredBytes(env.DB);
+  if (stored + byteSize > MAX_TOTAL_STORAGE_BYTES) {
+    throw AppError.payloadTooLarge(
+      'El almacén de archivos alcanzó su tope. Revisa las imágenes antes de subir más.',
+    );
+  }
 
   await env.FILES.put(objectKey, input.bytes, { httpMetadata: { contentType } });
 

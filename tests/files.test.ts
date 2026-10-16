@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { env } from 'cloudflare:test';
 import { ApiClient, countRows, seedUser } from './helpers';
 
 const PNG_1X1_BASE64 =
@@ -88,6 +89,22 @@ describe('almacenamiento de archivos', () => {
     const anonymous = new ApiClient();
     const response = await anonymous.request('POST', '/api/v1/files', { form: pngForm(), csrf: true });
     expect(response.status).toBe(401);
+  });
+
+  it('aplica un tope agregado al almacén', async () => {
+    const api = await adminClient();
+    // Se simula un almacén lleno con una fila de un byte de un gibibyte.
+    await env.DB.prepare(
+      `INSERT INTO storage_objects (object_key, content_type, byte_size, is_public, scope, created_at)
+       VALUES ('objects/lleno.png', 'image/png', ?, 0, 'site', ?)`,
+    )
+      .bind(1024 * 1024 * 1024, new Date().toISOString())
+      .run();
+
+    const response = await api.request('POST', '/api/v1/files', { form: pngForm(), csrf: true });
+    expect(response.status).toBe(413);
+    // Y no quedaron bytes huérfanos en R2: se comprueba antes de escribir.
+    expect(await countRows('storage_objects')).toBe(1);
   });
 
   it('exige el permiso del ámbito del objeto para verlo y retirarlo', async () => {

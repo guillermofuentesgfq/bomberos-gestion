@@ -1,5 +1,11 @@
 import * as content from '../repositories/content';
-import { getInstitutionConfig, getSeoConfig, listSiteSections, type SocialLink } from './cms';
+import {
+  getInstitutionConfig,
+  getSeoConfig,
+  listSiteSections,
+  MAX_GALLERY_PHOTOS,
+  type SocialLink,
+} from './cms';
 
 /**
  * Composición de la vista pública.
@@ -315,7 +321,9 @@ export async function listPublicGalleries(db: D1Database): Promise<PublicGallery
 
   const images = new Map<number, PublicImage>();
   for (const gallery of galleries) {
-    const photos = await content.listGalleryPhotos(db, gallery.id);
+    // Solo se usa la primera foto pública de la galería como portada: se lee un
+    // número acotado de filas por galería, no el conjunto entero.
+    const photos = await content.listGalleryPhotos(db, gallery.id, MAX_GALLERY_PHOTOS);
     const publicPhoto = photos.find((photo) => photo.is_public === 1);
     if (publicPhoto) {
       const image = toPublicImage({
@@ -405,7 +413,9 @@ export async function getPublicGalleryBySlug(
 ): Promise<PublicGalleryDetail | null> {
   const gallery = await content.findPublishedGalleryBySlug(db, slug);
   if (!gallery) return null;
-  const photos = await content.listGalleryPhotos(db, gallery.id);
+  // La lectura pública se acota en SQL: la galería no puede servir un número
+  // ilimitado de fotos a un visitante anónimo.
+  const photos = await content.listGalleryPhotos(db, gallery.id, MAX_GALLERY_PHOTOS);
   const images: PublicImage[] = photos.flatMap((photo) => {
     const image = toPublicImage({
       id: photo.object_id,

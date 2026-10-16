@@ -11,6 +11,13 @@ export const SESSION_COOKIE = 'bg_session';
 /** Duración por defecto de una sesión: 8 horas. */
 export const SESSION_TTL_SECONDS = 8 * 60 * 60;
 
+/**
+ * Cota del `user-agent` que se guarda. La cabecera la elige el cliente y la
+ * columna es `TEXT` sin límite: sin acotarla, una cuenta válida podía
+ * almacenar lo que cupiera en la cabecera en cada ingreso.
+ */
+const MAX_USER_AGENT_CHARS = 256;
+
 /** Cada cuánto se refresca `last_seen_at` (evita una escritura por petición). */
 const LAST_SEEN_THROTTLE_SECONDS = 300;
 
@@ -75,7 +82,7 @@ export async function createSession(
     now,
     now,
     expiresAt,
-    userAgent,
+    userAgent === null ? null : userAgent.slice(0, MAX_USER_AGENT_CHARS),
     ipHash,
   );
 

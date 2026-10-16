@@ -5,6 +5,7 @@ import { AppError } from './lib/errors';
 import { fail } from './lib/http';
 import { api } from './routes';
 import { seoRoutes } from './routes/public';
+import { purgeStaleData } from './services/maintenance';
 
 /** Tamaño máximo del cuerpo para endpoints JSON (las subidas usan su propio límite). */
 const MAX_JSON_BYTES = 1 * 1024 * 1024; // 1 MB
@@ -94,4 +95,28 @@ app.onError((err, c) => {
 
 app.notFound((c) => fail(c, AppError.notFound('Recurso no encontrado.')));
 
-export default app;
+/**
+ * El Worker expone `fetch` (la aplicación) y `scheduled`, que el cron diario de
+ * `wrangler.jsonc` usa para limpiar datos caducados (sesiones, intentos de
+ * ingreso y reservas de idempotencia). Sin él, esas tablas solo crecían.
+ */
+export default {
+  fetch: app.fetch,
+  scheduled: async (_event: ScheduledController, env: Env, ctx: ExecutionContext) => {
+    ctx.waitUntil(
+      purgeStaleData(env.DB)
+        .then((summary) => {
+          console.log(JSON.stringify({ level: 'info', message: 'maintenance.purge', ...summary }));
+        })
+        .catch((error: unknown) => {
+          console.error(
+            JSON.stringify({
+              level: 'error',
+              message: 'maintenance.purge_failed',
+              detail: error instanceof Error ? error.message : 'unknown',
+            }),
+          );
+        }),
+    );
+  },
+} satisfies ExportedHandler<Env>;

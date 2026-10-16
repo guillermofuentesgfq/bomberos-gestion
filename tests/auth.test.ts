@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { env } from 'cloudflare:test';
+import { env, SELF } from 'cloudflare:test';
 import { ApiClient, countRows, seedUser } from './helpers';
 
 describe('autenticación, sesiones y autorización', () => {
@@ -18,6 +18,42 @@ describe('autenticación, sesiones y autorización', () => {
     });
     expect(response.status).toBe(403);
     expect(response.body.error?.code).toBe('forbidden');
+  });
+
+  it('rechaza un cuerpo que no se declara como JSON', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+
+    // La forma de una petición cruzada desde un formulario de otro sitio:
+    // `text/plain` con un cuerpo que parece JSON. El parser de Hono no mira el
+    // tipo de contenido, así que la puerta es la comprobación propia.
+    const response = await SELF.fetch('https://ejemplo/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'text/plain' },
+      body: JSON.stringify({ username: 'admin', password: 'ContrasenaAdmin123' }),
+    });
+    expect(response.status).toBe(415);
+  });
+
+  it('aplica el tope de cuerpo sobre los bytes recibidos, no sobre la cabecera', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+
+    // Cuerpo enviado por streaming, sin `content-length`: el tope debe medirlo.
+    const chunk = new TextEncoder().encode(`{"relleno":"${'x'.repeat(64 * 1024)}"}`);
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (let i = 0; i < 40; i += 1) controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+    const response = await SELF.fetch('https://ejemplo/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: stream,
+      duplex: 'half',
+    } as RequestInit);
+    expect(response.status).toBe(413);
   });
 
   it('inicializa el primer administrador y no permite repetirlo', async () => {

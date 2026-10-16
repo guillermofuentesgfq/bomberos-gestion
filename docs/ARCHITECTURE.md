@@ -97,6 +97,14 @@ así:
 > mutaciones relevantes de usuarios, personal, contenido, archivos, inventario e
 > informes escriben su fila.
 
+> **Limpieza periódica.** El Worker exporta un manejador `scheduled` que un cron
+> diario (`triggers.crons` en `wrangler.jsonc`) usa para borrar sesiones
+> caducadas o revocadas de más de 30 días, intentos de ingreso de más de 30 días
+> y reservas de idempotencia caducadas. El registro de auditoría **no** se
+> purga: es el rastro forense y su retención la decide el operador. El almacén de
+> archivos tiene además un tope agregado (`MAX_TOTAL_STORAGE_BYTES`, 1 GiB por
+> defecto en `services/storage.ts`): los topes por archivo no acotan el total.
+
 ### Archivos privados
 
 R2 no se expone nunca de forma pública (nada de `r2.dev`). Las descargas pasan

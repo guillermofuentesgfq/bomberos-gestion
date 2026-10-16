@@ -695,15 +695,22 @@ const GALLERY_PHOTO_COLUMNS = `gp.id, gp.gallery_id, gp.object_id, gp.caption, g
 export async function listGalleryPhotos(
   db: D1Database,
   galleryId: number,
+  limit?: number,
 ): Promise<GalleryPhotoRow[]> {
+  // Las vistas públicas leen un número acotado de filas: el conjunto almacenado
+  // ya está limitado por el servicio, pero acotar también aquí protege la ruta
+  // anónima de cualquier conjunto heredado.
+  const clause = limit === undefined ? '' : ' LIMIT ?';
+  const params: unknown[] = [galleryId];
+  if (limit !== undefined) params.push(Math.min(Math.max(Math.trunc(limit), 1), 200));
   return all<GalleryPhotoRow>(
     db,
     `SELECT ${GALLERY_PHOTO_COLUMNS}
        FROM gallery_photos gp
        JOIN storage_objects o ON o.id = gp.object_id
       WHERE gp.gallery_id = ? AND o.archived_at IS NULL
-      ORDER BY gp.sort_order, gp.id`,
-    galleryId,
+      ORDER BY gp.sort_order, gp.id${clause}`,
+    ...params,
   );
 }
 

@@ -57,7 +57,6 @@ const DROP_WITH_CONTENT = new Set([
 
 /** Tope defensivo: el esquema ya limita los cuerpos a 100 000 caracteres. */
 const MAX_LENGTH = 200_000;
-
 /** Longitud máxima de una URL aceptada en un enlace. */
 const MAX_HREF_LENGTH = 2_000;
 

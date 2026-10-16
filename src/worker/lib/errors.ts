@@ -10,6 +10,7 @@ export type ErrorCode =
   | 'forbidden'
   | 'not_found'
   | 'method_not_allowed'
+  | 'unsupported_media_type'
   | 'conflict'
   | 'payload_too_large'
   | 'too_many_requests'
@@ -22,6 +23,7 @@ const STATUS_BY_CODE: Record<ErrorCode, number> = {
   forbidden: 403,
   not_found: 404,
   method_not_allowed: 405,
+  unsupported_media_type: 415,
   conflict: 409,
   payload_too_large: 413,
   too_many_requests: 429,
@@ -61,6 +63,9 @@ export class AppError extends Error {
   }
   static conflict(message = 'La operación entra en conflicto con el estado actual.') {
     return new AppError('conflict', message);
+  }
+  static unsupportedMediaType(message = 'Tipo de contenido no admitido.') {
+    return new AppError('unsupported_media_type', message);
   }
   static unprocessable(message = 'No se pudo procesar la solicitud.', issues?: FieldIssue[]) {
     return new AppError('unprocessable_entity', message, issues);

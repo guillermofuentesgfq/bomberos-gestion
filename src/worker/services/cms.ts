@@ -731,6 +731,9 @@ export async function setGalleryPhotos(
   return { count };
 }
 
+/** Tope de fotos por galería: el conjunto almacenado, no solo cada petición. */
+export const MAX_GALLERY_PHOTOS = 200;
+
 /** Agrega fotos al final de una galería. */
 export async function addGalleryPhotos(
   db: D1Database,
@@ -741,6 +744,13 @@ export async function addGalleryPhotos(
   await requireGallery(db, galleryId);
   const existing = await content.listGalleryPhotos(db, galleryId);
   const combined = [...existing.map(fromExisting), ...photos.map(toNewPhoto)];
+  // El esquema de la ruta limita cada petición, pero el conjunto almacenado
+  // crecía sin tope (el `PUT` gemelo sí lo acota): se aplica el mismo techo.
+  if (combined.length > MAX_GALLERY_PHOTOS) {
+    throw AppError.unprocessable(
+      `La galería admite como máximo ${MAX_GALLERY_PHOTOS} fotos; ya tiene ${existing.length}.`,
+    );
+  }
   const count = await content.replaceGalleryPhotos(db, galleryId, combined);
   await logAudit(db, {
     actorUserId: actor.userId,

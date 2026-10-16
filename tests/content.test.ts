@@ -269,6 +269,28 @@ describe('imágenes del sitio público', () => {
     expect(after.body.data?.institution.shield).toBeNull();
   });
 
+  it('no deja que una galería acumule fotos por encima del tope', async () => {
+    const api = await adminClient();
+    const created = await api.post<{ id: number }>('/api/v1/site/galleries', {
+      title: 'Galería con tope',
+    });
+    expect(created.status).toBe(201);
+    const galleryId = created.body.data?.id ?? 0;
+
+    const objectId = await uploadPng(api, true);
+    const many = Array.from({ length: 200 }, () => ({ objectId, altText: 'foto' }));
+
+    // Hasta el tope, sí.
+    const first = await api.post(`/api/v1/site/galleries/${galleryId}/photos`, { photos: many });
+    expect(first.status).toBe(201);
+
+    // Una más, no: el conjunto almacenado tiene el mismo techo que el `PUT`.
+    const overflow = await api.post(`/api/v1/site/galleries/${galleryId}/photos`, {
+      photos: [{ objectId, altText: 'una más' }],
+    });
+    expect(overflow.status).toBe(422);
+  });
+
   it('agrega fotos a una galería y solo se publican las públicas', async () => {
     const api = await adminClient();
     const created = await api.post<{ id: number; slug: string }>('/api/v1/site/galleries', {
