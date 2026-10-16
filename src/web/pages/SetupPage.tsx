@@ -142,10 +142,13 @@ export function SetupPage() {
       />
 
       <Alert tone="info" title="¿De dónde sale el token?">
-        Copia el <strong>token de inicialización</strong> desde la variable de entorno{' '}
-        <code className="rounded bg-muted px-1 py-0.5 text-sm">BOOTSTRAP_TOKEN</code> de la
-        instalación. Solo se usa una vez: sirve para habilitar la creación del primer
-        administrador.
+        Es el valor de <code className="rounded bg-muted px-1 py-0.5 text-sm">BOOTSTRAP_TOKEN</code>.
+        En desarrollo local está en el archivo{' '}
+        <code className="rounded bg-muted px-1 py-0.5 text-sm">.dev.vars</code> (Wrangler no lee
+        un archivo <code className="rounded bg-muted px-1 py-0.5 text-sm">.env</code>); en
+        producción se definió con{' '}
+        <code className="rounded bg-muted px-1 py-0.5 text-sm">wrangler secret put</code>. Si
+        cambias su valor, reinicia el servidor. Solo se usa una vez.
       </Alert>
 
       {generalError ? (

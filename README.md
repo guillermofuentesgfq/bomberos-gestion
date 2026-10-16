@@ -77,6 +77,10 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"  # ejec
 # pega cada resultado en AUTH_PASSWORD_PEPPER y AUTH_SESSION_SECRET,
 # y define un BOOTSTRAP_TOKEN a tu elección.
 
+> **Atención:** `wrangler dev` lee **`.dev.vars`**, no `.env`. Si defines los
+> secretos en un `.env`, el servidor no los verá y el asistente rechazará el
+> token. Cualquier cambio en `.dev.vars` requiere reiniciar `wrangler dev`.
+
 # 2) Aplicar las migraciones en la base D1 local
 npm run db:migrate:local
 
