@@ -22,6 +22,7 @@ async function request<T>(
   path: string,
   csrfToken: string | null,
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const headers: Record<string, string> = { accept: 'application/json' };
   if (body !== undefined) headers['content-type'] = 'application/json';
@@ -34,8 +35,10 @@ async function request<T>(
       headers,
       credentials: 'include',
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(signal ? { signal } : {}),
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new ApiError('network_error', 0, 'No se pudo contactar el servidor.');
   }
 
@@ -62,6 +65,10 @@ export interface ContentItem {
   body?: string | null;
   excerpt?: string | null;
   summary?: string | null;
+  /** Portada de noticias y actividades (`cover_object_id`). */
+  coverObjectId?: number | null;
+  /** Imagen principal de páginas (`hero_object_id`). */
+  heroObjectId?: number | null;
   status: ContentStatus;
   publishedAt: string | null;
   createdAt?: string;
@@ -88,13 +95,25 @@ export function fetchInstitution(csrfToken: string | null, signal?: AbortSignal)
 export async function fetchContentList(
   kind: ContentKind,
   csrfToken: string | null,
+  signal?: AbortSignal,
 ): Promise<ContentItem[]> {
-  const data = await request<Record<string, ContentItem[]>>('GET', `/${kind}`, csrfToken);
+  const data = await request<Record<string, ContentItem[]>>(
+    'GET',
+    `/${kind}`,
+    csrfToken,
+    undefined,
+    signal,
+  );
   return data[kind] ?? [];
 }
 
 export function createNews(
-  input: { title: string; summary?: string | null; body?: string | null },
+  input: {
+    title: string;
+    summary?: string | null;
+    body?: string | null;
+    coverObjectId?: number | null;
+  },
   csrfToken: string,
 ): Promise<{ id: number; slug: string }> {
   return request('POST', '/news', csrfToken, input);
@@ -107,4 +126,172 @@ export function transitionContent(
   csrfToken: string,
 ): Promise<{ status: ContentStatus }> {
   return request('POST', `/${kind}/${id}/${action}`, csrfToken);
+}
+
+// ---------------------------------------------------------------------------
+// Galerías y sus fotos
+// ---------------------------------------------------------------------------
+
+/** Una foto dentro de una galería, tal como la devuelve el servidor. */
+export interface GalleryPhoto {
+  id: number;
+  objectId: number;
+  caption: string | null;
+  altText: string | null;
+  sortOrder: number;
+  isPublic: boolean;
+}
+
+/** DTO de galería del panel (incluye estado editorial). */
+export interface GallerySummary {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  status: ContentStatus;
+  createdAt?: string;
+  updatedAt: string;
+}
+
+export interface GalleryDetail {
+  gallery: GallerySummary;
+  photos: GalleryPhoto[];
+}
+
+export interface GalleryPhotoInput {
+  objectId: number;
+  caption?: string | null;
+  altText?: string | null;
+}
+
+/** `GET /galleries/:id` — detalle de la galería con sus fotos en orden. */
+export function fetchGalleryDetail(
+  id: number,
+  csrfToken: string | null,
+  signal?: AbortSignal,
+): Promise<GalleryDetail> {
+  return request<GalleryDetail>('GET', `/galleries/${id}`, csrfToken, undefined, signal);
+}
+
+/** `POST /galleries/:id/photos` — agrega una o más fotos al final (201). */
+export function addGalleryPhotos(
+  id: number,
+  photos: GalleryPhotoInput[],
+  csrfToken: string,
+): Promise<{ count: number }> {
+  return request('POST', `/galleries/${id}/photos`, csrfToken, { photos });
+}
+
+/** `PATCH /galleries/:id/photos` — fija el orden completo a partir de los ids. */
+export function reorderGalleryPhotos(
+  id: number,
+  order: number[],
+  csrfToken: string,
+): Promise<{ reordered: true }> {
+  return request('PATCH', `/galleries/${id}/photos`, csrfToken, { order });
+}
+
+/** `DELETE /galleries/:id/photos/:photoId`. */
+export function deleteGalleryPhoto(
+  id: number,
+  photoId: number,
+  csrfToken: string,
+): Promise<{ removed: true }> {
+  return request('DELETE', `/galleries/${id}/photos/${photoId}`, csrfToken);
+}
+
+// ---------------------------------------------------------------------------
+// Portadas e imágenes principales del contenido existente
+// ---------------------------------------------------------------------------
+
+/**
+ * Estos `PUT` reemplazan el registro completo, así que antes de escribir se lee
+ * el detalle vigente y se reenvían sus campos. Solo cambia la portada; el
+ * cuerpo, el resumen y los metadatos SEO se conservan intactos.
+ */
+
+export interface NewsDetail extends ContentItem {
+  coverObjectId: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+}
+
+export async function fetchNewsDetail(id: number, csrfToken: string | null): Promise<NewsDetail> {
+  const data = await request<{ news: NewsDetail }>('GET', `/news/${id}`, csrfToken);
+  return data.news;
+}
+
+export async function updateNewsCover(
+  id: number,
+  objectId: number | null,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchNewsDetail(id, csrfToken);
+  await request('PUT', `/news/${id}`, csrfToken, {
+    title: detail.title,
+    summary: detail.summary ?? null,
+    body: detail.body ?? null,
+    coverObjectId: objectId,
+    seoTitle: detail.seoTitle ?? null,
+    seoDescription: detail.seoDescription ?? null,
+  });
+}
+
+export interface PageDetail extends ContentItem {
+  heroObjectId: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+}
+
+export async function fetchPageDetail(id: number, csrfToken: string | null): Promise<PageDetail> {
+  const data = await request<{ page: PageDetail }>('GET', `/pages/${id}`, csrfToken);
+  return data.page;
+}
+
+export async function updatePageCover(
+  id: number,
+  objectId: number | null,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchPageDetail(id, csrfToken);
+  await request('PUT', `/pages/${id}`, csrfToken, {
+    title: detail.title,
+    body: detail.body ?? null,
+    excerpt: detail.excerpt ?? null,
+    heroObjectId: objectId,
+    seoTitle: detail.seoTitle ?? null,
+    seoDescription: detail.seoDescription ?? null,
+  });
+}
+
+export interface ActivityDetail extends ContentItem {
+  coverObjectId: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  locationText: string | null;
+}
+
+export async function fetchActivityDetail(
+  id: number,
+  csrfToken: string | null,
+): Promise<ActivityDetail> {
+  const data = await request<{ activity: ActivityDetail }>('GET', `/activities/${id}`, csrfToken);
+  return data.activity;
+}
+
+export async function updateActivityCover(
+  id: number,
+  objectId: number | null,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchActivityDetail(id, csrfToken);
+  await request('PUT', `/activities/${id}`, csrfToken, {
+    title: detail.title,
+    summary: detail.summary ?? null,
+    body: detail.body ?? null,
+    startsAt: detail.startsAt ?? null,
+    endsAt: detail.endsAt ?? null,
+    locationText: detail.locationText ?? null,
+    coverObjectId: objectId,
+  });
 }

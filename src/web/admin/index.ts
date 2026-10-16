@@ -10,3 +10,4 @@ export { PersonDetailPage } from './PersonDetailPage';
 export { MovementsPage } from './MovementsPage';
 export { ContentAdminPage } from './ContentAdminPage';
 export { SettingsPage } from './SettingsPage';
+export { ImageUploader } from './ImageUploader';

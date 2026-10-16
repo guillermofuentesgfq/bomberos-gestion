@@ -5,8 +5,8 @@ import { ok } from '../lib/http';
 import { MAX_IMAGE_BYTES } from '../lib/image';
 import {
   requireAuth,
+  requireAnyPermission,
   requireCsrf,
-  requirePermission,
 } from '../security/middleware';
 import { hasAnyPermission } from '../security/permissions';
 import {
@@ -57,7 +57,7 @@ filesRoutes.post(
   '/',
   requireAuth,
   requireCsrf,
-  requirePermission('inventory.write'),
+  requireAnyPermission(['inventory.write', 'site.write']),
   async (c) => {
     const declaredLength = Number(c.req.header('content-length') ?? '0');
     if (Number.isFinite(declaredLength) && declaredLength > MAX_IMAGE_BYTES + MULTIPART_OVERHEAD_BYTES) {
@@ -139,7 +139,7 @@ filesRoutes.delete(
   '/:id',
   requireAuth,
   requireCsrf,
-  requirePermission('inventory.write'),
+  requireAnyPermission(['inventory.write', 'site.write']),
   async (c) => {
     const id = parseObjectId(c.req.param('id'));
     const user = c.get('user');

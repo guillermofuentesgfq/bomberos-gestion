@@ -3,7 +3,7 @@ import { getCookie } from 'hono/cookie';
 import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { clientIpHash, CSRF_HEADER } from './request';
-import { hasPermission, type PermissionCode } from './permissions';
+import { hasPermission, hasAnyPermission, type PermissionCode } from './permissions';
 import { isSafeMethod, csrfMatches } from './csrf';
 import { SESSION_COOKIE, resolveSession, touchSession } from './sessions';
 
@@ -57,6 +57,20 @@ export function requirePermission(code: PermissionCode) {
     const user = c.get('user');
     if (!user) throw AppError.unauthorized();
     if (!hasPermission(user.permissions, code)) throw AppError.forbidden();
+    await next();
+  });
+}
+
+/**
+ * Exige al menos uno de los permisos indicados. Útil cuando una misma acción
+ * sirve a áreas distintas (por ejemplo, subir imágenes tanto para inventario
+ * como para el sitio web).
+ */
+export function requireAnyPermission(codes: readonly PermissionCode[]) {
+  return createMiddleware<AppEnv>(async (c, next) => {
+    const user = c.get('user');
+    if (!user) throw AppError.unauthorized();
+    if (!hasAnyPermission(user.permissions, codes)) throw AppError.forbidden();
     await next();
   });
 }

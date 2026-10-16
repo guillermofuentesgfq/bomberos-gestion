@@ -198,3 +198,95 @@ describe('informes y exportación', () => {
     expect(text).not.toContain('<f>HYPERLINK');
   });
 });
+
+describe('imágenes del sitio público', () => {
+  const PNG =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  function pngForm(isPublic: boolean): FormData {
+    const binary = atob(PNG);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const form = new FormData();
+    form.append('file', new File([bytes], 'imagen.png', { type: 'image/png' }));
+    form.append('isPublic', isPublic ? 'true' : 'false');
+    return form;
+  }
+
+  async function uploadPng(api: ApiClient, isPublic: boolean): Promise<number> {
+    const response = await api.request<{ id: number }>('POST', '/api/v1/files', {
+      form: pngForm(isPublic),
+      csrf: true,
+    });
+    expect(response.status).toBe(201);
+    return response.body.data?.id ?? 0;
+  }
+
+  it('el escudo subido con isPublic aparece en la portada; uno privado no', async () => {
+    const api = await adminClient();
+    const publicId = await uploadPng(api, true);
+
+    const assigned = await api.put('/api/v1/site/institution', { shieldObjectId: publicId });
+    expect(assigned.status).toBe(200);
+
+    const anonymous = new ApiClient();
+    const site = await anonymous.get<{
+      institution: { shield: { url: string } | null };
+    }>('/api/v1/site');
+    expect(site.body.data?.institution.shield?.url).toContain(`/api/v1/files/${publicId}`);
+
+    // Una imagen privada no se expone aunque quede referenciada.
+    const privateId = await uploadPng(api, false);
+    await api.put('/api/v1/site/institution', { shieldObjectId: privateId });
+
+    const after = await anonymous.get<{ institution: { shield: { url: string } | null } }>(
+      '/api/v1/site',
+    );
+    expect(after.body.data?.institution.shield).toBeNull();
+  });
+
+  it('agrega fotos a una galería y solo se publican las públicas', async () => {
+    const api = await adminClient();
+    const created = await api.post<{ id: number; slug: string }>('/api/v1/site/galleries', {
+      title: 'Ejercicios de rescate',
+    });
+    expect(created.status).toBe(201);
+    const galleryId = created.body.data?.id ?? 0;
+    const slug = created.body.data?.slug ?? '';
+
+    const publicId = await uploadPng(api, true);
+    const privateId = await uploadPng(api, false);
+
+    const added = await api.post(`/api/v1/site/galleries/${galleryId}/photos`, {
+      photos: [
+        { objectId: publicId, altText: 'Extracción vehicular' },
+        { objectId: privateId, altText: 'Imagen interna' },
+      ],
+    });
+    expect(added.status).toBe(201);
+
+    await api.post(`/api/v1/site/galleries/${galleryId}/publish`);
+
+    const anonymous = new ApiClient();
+    const detail = await anonymous.get<{
+      gallery: { title: string; photos: { url: string; alt: string | null }[] };
+    }>(`/api/v1/galleries/${slug}`);
+
+    expect(detail.status).toBe(200);
+    const photos = detail.body.data?.gallery.photos ?? [];
+    expect(photos).toHaveLength(1);
+    expect(photos[0]?.url).toContain(`/api/v1/files/${publicId}`);
+    expect(photos[0]?.alt).toBe('Extracción vehicular');
+  });
+
+  it('rechaza contenido activo también al subir desde el sitio', async () => {
+    const api = await adminClient();
+    const form = new FormData();
+    form.append(
+      'file',
+      new File(['<svg xmlns="http://www.w3.org/2000/svg"/>'], 'x.svg', { type: 'image/svg+xml' }),
+    );
+    form.append('isPublic', 'true');
+    const response = await api.request('POST', '/api/v1/files', { form, csrf: true });
+    expect(response.status).toBe(422);
+  });
+});

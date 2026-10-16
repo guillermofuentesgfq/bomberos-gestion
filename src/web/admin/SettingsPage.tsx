@@ -15,6 +15,7 @@ import { TextField } from '../components/TextField';
 import { ApiError } from '../lib/api';
 import { errorMessage } from './adminApi';
 import { CheckboxField, StatusMessage, TextAreaField } from './adminFields';
+import { ImageUploader } from './ImageUploader';
 import {
   createCategory,
   createLocation,
@@ -151,6 +152,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
           vision: institution.vision,
           values: institution.values,
           corpsInfo: institution.corpsInfo,
+          shieldObjectId: institution.shieldObjectId,
+          logoObjectId: institution.logoObjectId,
           primaryColor: institution.primaryColor,
           secondaryColor: institution.secondaryColor,
           address: institution.address,
@@ -166,7 +169,12 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
         csrfToken,
       );
       await updateSeo(
-        { title: seo.title, description: seo.description, allowIndexing: seo.allowIndexing },
+        {
+          title: seo.title,
+          description: seo.description,
+          ogImageObjectId: seo.ogImageObjectId,
+          allowIndexing: seo.allowIndexing,
+        },
         csrfToken,
       );
       setNotice(
@@ -554,6 +562,23 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
             </div>
           </div>
 
+          <div className="grid gap-6 md:grid-cols-2">
+            <ImageUploader
+              csrfToken={csrfToken}
+              label="Escudo"
+              hint="Es la imagen principal de la portada y de la cabecera del sitio."
+              value={institution.shieldObjectId}
+              onChange={(objectId) => setInstitution({ ...institution, shieldObjectId: objectId })}
+            />
+            <ImageUploader
+              csrfToken={csrfToken}
+              label="Logotipo"
+              hint="Opcional. Se usa en el pie de página."
+              value={institution.logoObjectId}
+              onChange={(objectId) => setInstitution({ ...institution, logoObjectId: objectId })}
+            />
+          </div>
+
           <div className="grid gap-5 md:grid-cols-2">
             <TextField
               id="inst-address"
@@ -634,6 +659,13 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
               rows={3}
               value={seo.description}
               onChange={(event) => setSeo({ ...seo, description: event.target.value })}
+            />
+            <ImageUploader
+              csrfToken={csrfToken}
+              label="Imagen para redes sociales"
+              hint="Se muestra al compartir el enlace del sitio."
+              value={seo.ogImageObjectId}
+              onChange={(objectId) => setSeo({ ...seo, ogImageObjectId: objectId })}
             />
             <CheckboxField
               id="seo-indexing"
