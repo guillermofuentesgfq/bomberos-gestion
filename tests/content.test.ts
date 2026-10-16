@@ -54,6 +54,31 @@ describe('sitio público y CMS', () => {
     expect(site.body.data?.seo.title).toBe('Bomberos de Prueba');
   });
 
+  it('rechaza redes sociales con esquemas peligrosos (javascript:, data:)', async () => {
+    const api = await adminClient();
+
+    for (const url of ['javascript:alert(1)', 'data:text/html,<script>x</script>', '//evil.example']) {
+      const rejected = await api.put('/api/v1/site/institution', {
+        socials: [{ network: 'X', url }],
+      });
+      expect(rejected.status).toBe(422);
+    }
+
+    const accepted = await api.put('/api/v1/site/institution', {
+      socials: [{ network: 'X', url: 'https://x.com/bomberos' }],
+    });
+    expect(accepted.status).toBe(200);
+  });
+
+  it('rechaza un siteUrl con esquema peligroso', async () => {
+    const api = await adminClient();
+    const rejected = await api.put('/api/v1/site/seo', { siteUrl: 'javascript:alert(1)' });
+    expect(rejected.status).toBe(422);
+
+    const accepted = await api.put('/api/v1/site/seo', { siteUrl: 'https://bomberos.example' });
+    expect(accepted.status).toBe(200);
+  });
+
   it('no expone borradores y sí el contenido publicado (publicar y retirar)', async () => {
     const api = await adminClient();
     const created = await api.post<{ id: number; slug: string }>('/api/v1/site/pages', {

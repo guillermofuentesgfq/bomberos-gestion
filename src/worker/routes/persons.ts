@@ -156,7 +156,9 @@ for (const entry of [
 // --- Personas ---------------------------------------------------------------
 
 personRoutes.get('/', requireAuth, requirePermission('persons.read'), async (c) => {
-  const search = c.req.query('q')?.trim();
+  // La búsqueda se acota igual que la de materiales: sin cota, un `q` enorme
+  // alimentaría un `LIKE` innecesariamente costoso.
+  const search = (c.req.query('q') ?? '').trim().slice(0, 120);
   const people = await personsRepo.listPersons(c.env.DB, search || undefined);
   return ok(c, people);
 });

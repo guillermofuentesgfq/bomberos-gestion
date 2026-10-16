@@ -81,13 +81,35 @@ function escapeAttribute(value: string): string {
     .replace(/>/g, '&gt;');
 }
 
-/** Solo `http`, `https`, `mailto`, `tel` o rutas relativas y anclas. */
+/**
+ * Solo `http`, `https`, `mailto`, `tel` o rutas relativas y anclas.
+ *
+ * El valor se normaliza **como lo hará el navegador** antes de clasificarlo: el
+ * analizador de URLs (WHATWG) elimina los tabuladores y saltos de línea
+ * interiores y recorta los controles iniciales, de modo que `java\tscript:` o
+ * `\njavascript:` acaban resolviéndose como `javascript:`. Si no se replicara
+ * esa normalización aquí, el esquema ofuscado se clasificaría como «ruta
+ * relativa» y se guardaría tal cual. Además se rechazan las URLs relativas al
+ * protocolo (`//host`, y su variante con barra invertida), que el navegador
+ * resuelve a un origen cruzado.
+ */
+const URL_CONTROL_CHARS = /[\t\n\r]/g;
+const URL_EDGE_CONTROL_CHARS = /^[\u0000-\u0020\u007f]+|[\u0000-\u0020\u007f]+$/g;
+
+function normalizeUrl(value: string): string {
+  return value.replace(URL_CONTROL_CHARS, '').replace(URL_EDGE_CONTROL_CHARS, '');
+}
+
 function isSafeUrl(url: string): boolean {
-  const value = url.trim();
+  const value = normalizeUrl(url);
   if (value.length === 0) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(value)) {
     return /^(https?|mailto|tel):/i.test(value);
   }
+  // `//host` o `\\host`: el navegador los resuelve contra el esquema de la
+  // página y navegan a otro origen, algo que la política de este saneador no
+  // admite (solo los cuatro esquemas o rutas relativas del mismo origen).
+  if (/^[\\/]{2}/.test(value)) return false;
   return true;
 }
 
@@ -115,7 +137,9 @@ function extractHref(attributes: string): string | null {
   const match = /href\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/i.exec(attributes);
   if (!match) return null;
   const raw = match[1] ?? match[2] ?? match[3] ?? '';
-  const value = raw.replace(/&amp;/gi, '&').trim();
+  // Se guarda el valor ya normalizado (sin controles ni saltos): el navegador
+  // los eliminaría igual al navegar, así que no deben llegar al HTML almacenado.
+  const value = normalizeUrl(raw.replace(/&amp;/gi, '&'));
   if (!isSafeUrl(value)) return null;
   return value.slice(0, MAX_HREF_LENGTH);
 }

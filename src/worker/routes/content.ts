@@ -65,13 +65,31 @@ const seoPatchSchema = z.object({
   title: z.string().trim().max(200).optional(),
   description: z.string().trim().max(400).optional(),
   ogImageObjectId: z.number().int().positive().nullable().optional(),
-  siteUrl: z.string().trim().max(300).optional(),
+  // Sin consumidor hoy, pero si algún día alimenta un enlace canónico u `og:url`
+  // debe llegar ya restringido a http/https (igual que `socials.url`).
+  siteUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .refine(
+      (value) => value.length === 0 || /^https?:\/\//i.test(value),
+      'El sitio debe empezar por http:// o https://.',
+    )
+    .optional(),
   allowIndexing: z.boolean().optional(),
 });
 
 const socialSchema = z.object({
   network: z.string().trim().min(1, 'Indica la red.').max(40),
-  url: z.string().trim().url('La URL de la red no es válida.').max(500),
+  // `.url()` de Zod acepta cualquier esquema que el analizador de URLs pueda
+  // procesar (incluido `javascript:`), así que se restringe aquí: este valor se
+  // renderiza como `href` en el sitio público.
+  url: z
+    .string()
+    .trim()
+    .url('La URL de la red no es válida.')
+    .max(500)
+    .refine((value) => /^https?:\/\//i.test(value), 'El enlace debe empezar por http:// o https://.'),
 });
 
 // El contenido enriquecido del sitio (cuerpos, resúmenes y los textos largos de

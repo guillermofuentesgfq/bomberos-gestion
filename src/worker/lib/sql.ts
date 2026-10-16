@@ -26,3 +26,13 @@ export function isCheckViolation(error: unknown): boolean {
 export function isForeignKeyViolation(error: unknown): boolean {
   return /FOREIGN KEY constraint failed/i.test(errorMessage(error));
 }
+
+/**
+ * Patrón `LIKE` con el texto escapado: los comodines que escriba el usuario
+ * (`%`, `_`) y la propia barra de escape se tratan como literales, de modo que
+ * escribir `%` no coincide con todo. Se usa junto a `LIKE ? ESCAPE '\'`.
+ */
+export function likePattern(search: string): string {
+  const escaped = search.replace(/[\\%_]/g, (char) => `\\${char}`);
+  return `%${escaped}%`;
+}

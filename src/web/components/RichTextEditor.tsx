@@ -37,10 +37,20 @@ const ALLOWED_SCHEMES = new Set(['http', 'https', 'mailto', 'tel']);
  * Valida un enlace con el mismo criterio que el saneado del servidor: esquemas
  * `http`, `https`, `mailto` o `tel`, o una ruta relativa (`/`, `#`, `./`, `../`)
  * sin esquema. Rechaza cualquier otro esquema (por ejemplo `javascript:`).
+ *
+ * El valor se normaliza como lo hará el navegador (elimina tabuladores y saltos
+ * de línea, recorta controles), y se rechazan las URLs relativas al protocolo
+ * (`//host`), que navegan a otro origen.
  */
+const URL_CONTROL_CHARS = /[\t\n\r]/g;
+const URL_EDGE_CONTROL_CHARS = /^[\u0000-\u0020\u007f]+|[\u0000-\u0020\u007f]+$/g;
+
 export function isValidLink(raw: string): boolean {
-  const value = raw.trim();
+  const value = raw
+    .replace(URL_CONTROL_CHARS, '')
+    .replace(URL_EDGE_CONTROL_CHARS, '');
   if (value.length === 0) return false;
+  if (/^[\\/]{2}/.test(value)) return false;
   if (
     value.startsWith('/') ||
     value.startsWith('#') ||

@@ -1,5 +1,6 @@
 import { all, first, run } from '../lib/db';
 import { nowIso } from '../lib/time';
+import { likePattern } from '../lib/sql';
 
 export interface PersonRow {
   id: number;
@@ -40,11 +41,12 @@ const PERSON_COLUMNS = `id, full_name, rut, quality_id, phone, email, address, b
 
 export async function listPersons(db: D1Database, search?: string): Promise<PersonRow[]> {
   if (search) {
-    const like = `%${search}%`;
+    const like = likePattern(search);
     return all<PersonRow>(
       db,
       `SELECT ${PERSON_COLUMNS} FROM persons
-        WHERE archived_at IS NULL AND (full_name LIKE ? OR rut LIKE ? OR phone LIKE ?)
+        WHERE archived_at IS NULL
+          AND (full_name LIKE ? ESCAPE '\\' OR rut LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\')
         ORDER BY full_name`,
       like,
       like,

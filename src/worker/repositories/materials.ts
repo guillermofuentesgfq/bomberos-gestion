@@ -1,5 +1,6 @@
 import { all, first, run } from '../lib/db';
 import { nowIso } from '../lib/time';
+import { likePattern } from '../lib/sql';
 
 export interface MaterialRow {
   id: number;
@@ -73,8 +74,10 @@ export async function listMaterials(
 
   if (!filter.includeArchived) where.push('m.archived_at IS NULL');
   if (filter.search) {
-    where.push('(m.name LIKE ? OR m.code LIKE ? OR m.brand LIKE ? OR m.model LIKE ?)');
-    const like = `%${filter.search}%`;
+    where.push(
+      `(m.name LIKE ? ESCAPE '\\' OR m.code LIKE ? ESCAPE '\\' OR m.brand LIKE ? ESCAPE '\\' OR m.model LIKE ? ESCAPE '\\')`,
+    );
+    const like = likePattern(filter.search);
     params.push(like, like, like, like);
   }
   if (filter.categoryId !== undefined) {

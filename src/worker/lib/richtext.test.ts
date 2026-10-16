@@ -35,6 +35,29 @@ describe('sanitizeRichText', () => {
     expect(sanitizeRichText('<a href="vbscript:msgbox(1)">b</a>')).toBe('b');
   });
 
+  it('rechaza esquemas ofuscados con tabuladores o saltos de línea interiores', () => {
+    // El analizador de URLs del navegador elimina el tab/LF/CR y resuelve el
+    // esquema: si el saneador no lo replicara, `java\tscript:` se guardaría.
+    expect(sanitizeRichText('<a href="java\tscript:alert(1)">pulsa</a>')).toBe('pulsa');
+    expect(sanitizeRichText('<a href="java\nscript:alert(1)">pulsa</a>')).toBe('pulsa');
+    expect(sanitizeRichText('<a href="java\rscript:alert(1)">pulsa</a>')).toBe('pulsa');
+    expect(sanitizeRichText('<a href="\njavascript:alert(1)">pulsa</a>')).toBe('pulsa');
+    expect(sanitizeRichText('<a href="\u0001javascript:alert(1)">pulsa</a>')).toBe('pulsa');
+  });
+
+  it('rechaza URLs relativas al protocolo, que navegan a otro origen', () => {
+    expect(sanitizeRichText('<a href="//evil.example/ficha">ver</a>')).toBe('ver');
+    expect(sanitizeRichText('<a href="\\\\evil.example">ver</a>')).toBe('ver');
+  });
+
+  it('no deja caracteres de control en un href aceptado', () => {
+    // Una ruta relativa con un tab interior se normaliza (el navegador lo
+    // eliminaría igual al navegar), de modo que el HTML almacenado no lo lleva.
+    const result = sanitizeRichText('<a href="/con\ttacto">c</a>');
+    expect(result).toBe('<a href="/contacto" rel="noopener noreferrer">c</a>');
+    expect(result).not.toContain('\t');
+  });
+
   it('acepta enlaces http, https, mailto, tel y relativos, y añade rel', () => {
     expect(sanitizeRichText('<a href="https://bomberos.cl">a</a>')).toBe(
       '<a href="https://bomberos.cl" rel="noopener noreferrer">a</a>',

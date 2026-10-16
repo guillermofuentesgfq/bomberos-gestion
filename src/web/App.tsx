@@ -33,6 +33,20 @@ function SkipLink() {
   );
 }
 
+/**
+ * `decodeURIComponent` lanza con secuencias de porcentaje malformadas (por
+ * ejemplo `/admin/actas/entrega/1/%ZZ`), lo que dejaría la vista en blanco. Un
+ * enlace artesanal no debe poder tumbar la pantalla: si no se puede decodificar,
+ * se devuelve el valor tal cual.
+ */
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 /** Pantalla mientras se resuelve `/auth/status`. */
 function LoadingScreen() {
   return (
@@ -73,7 +87,7 @@ function AdminPanel() {
     return (
       <ActaEntregaPage
         personId={Number(actaEntrega[1])}
-        batchId={decodeURIComponent(actaEntrega[2])}
+        batchId={safeDecodeURIComponent(actaEntrega[2])}
       />
     );
   }

@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
     <title>Sistema de Gestión</title>
+    <!-- El documento lleva su propia CSP además de las cabeceras del Worker: en
+         producción el HTML de la SPA lo sirve la capa de Assets (los assets ganan
+         al Worker), así que esta meta es la que impide que un `javascript:`
+         almacenado en contenido saneado se ejecute al hacer clic. Las directivas
+         que solo existen como cabecera (frame-ancestors, COOP, X-Frame-Options)
+         las aporta el Worker para las rutas que sí atraviesan su middleware. -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; form-action 'self'; upgrade-insecure-requests"
+    />
     <!-- El icono lo sirve el Worker desde el escudo (o el logotipo) configurado
          en Ajustes, así que no hay un archivo fijo en el repositorio. -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
