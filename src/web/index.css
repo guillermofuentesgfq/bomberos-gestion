@@ -1,0 +1,33 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de diseño base. El design system completo (paleta institucional
+ * configurable, tipografía y escala) se generará en la fase de frontend con
+ * ui-ux-pro-max y se plasmará en `design-system/bomberos-gestion/MASTER.md`.
+ */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --radius-card: 0.75rem;
+}
+
+:root {
+  /* Los colores institucionales se inyectan en tiempo de ejecución desde la
+     configuración de la instalación; estos son valores de respaldo neutrales. */
+  --brand-primary: #b91c1c;
+  --brand-secondary: #111827;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --text: #0f172a;
+  --text-muted: #475569;
+  --border: #e2e8f0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #0b1220;
+    --surface-muted: #111827;
+    --text: #e5e7eb;
+    --text-muted: #9ca3af;
+    --border: #1f2937;
+  }
+}
