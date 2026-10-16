@@ -1,0 +1,62 @@
+name: Reporte de incidencia
+description: Informa de un comportamiento incorrecto o inesperado.
+title: '[Incidencia]: '
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por informar. **No incluyas datos personales, credenciales ni secretos**
+        en este formulario. Describe el problema con el mayor detalle posible.
+
+  - type: textarea
+    id: descripcion
+    attributes:
+      label: Descripción
+      description: ¿Qué está mal? Resume el problema en pocas frases.
+      placeholder: Al guardar una entrega, el total de existencias no se descuenta.
+    validations:
+      required: true
+
+  - type: textarea
+    id: pasos
+    attributes:
+      label: Pasos para reproducir
+      description: Secuencia exacta de acciones que provoca el problema.
+      placeholder: |
+        1. Entrar como administrador.
+        2. Abrir Inventario > Entregas.
+        3. Registrar una entrega de 5 unidades.
+        4. Ver el stock del artículo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: esperado
+    attributes:
+      label: Comportamiento esperado
+      description: ¿Qué debería haber ocurrido?
+    validations:
+      required: true
+
+  - type: textarea
+    id: obtenido
+    attributes:
+      label: Comportamiento obtenido
+      description: ¿Qué ocurrió realmente? Copia mensajes de error si los hay.
+    validations:
+      required: true
+
+  - type: textarea
+    id: entorno
+    attributes:
+      label: Entorno
+      description: Versión del proyecto, navegador, sistema operativo y cómo se despliega.
+      placeholder: |
+        - Versión / commit: v0.1.0 (abc1234)
+        - Navegador: Firefox 129
+        - Sistema operativo: macOS 15
+        - Despliegue: local (wrangler dev)
+    validations:
+      required: true

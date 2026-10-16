@@ -1,0 +1,49 @@
+# Integración continua: se ejecuta en cada push y pull request hacia `main`.
+# No usa secretos ni credenciales; solo compila y comprueba el repositorio.
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+# Cancela ejecuciones previas de la misma rama o PR para ahorrar minutos.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  comprobar:
+    name: Typecheck, build, pruebas y documentación
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Obtener el código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Comprobación de tipos
+        run: npm run typecheck
+
+      - name: Compilar Worker y SPA
+        run: npm run build
+
+      - name: Ejecutar pruebas
+        run: npm run test
+
+      - name: Comprobar documentación exigida
+        run: npm run docs:check

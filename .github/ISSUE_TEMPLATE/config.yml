@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Preguntas y soporte
+    url: https://github.com/guillermofuentesgfq/bomberos-gestion/discussions
+    about: Para dudas de uso o instalación, abre un hilo en Discusiones.
+  - name: Reporte de seguridad
+    url: https://github.com/guillermofuentesgfq/bomberos-gestion/blob/main/SECURITY.md
+    about: No publiques vulnerabilidades en incidencias públicas; sigue SECURITY.md.

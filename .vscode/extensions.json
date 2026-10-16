@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "EditorConfig.EditorConfig",
+    "Cloudflare.cloudflare-workers-bindings",
+    "ms-vscode.vscode-typescript-next"
+  ]
+}

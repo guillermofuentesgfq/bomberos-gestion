@@ -26,4 +26,27 @@ export interface Env {
 /** Variables almacenadas en el contexto de la petición. */
 export interface Variables {
   requestId: string;
+  /** Usuario autenticado, o null si la ruta es pública. */
+  user: AuthUser | null;
+  /** Información de la sesión activa, o null. */
+  session: SessionInfo | null;
+  /** Hash de la IP del cliente (nunca la IP en claro). */
+  ipHash: string;
+}
+
+/** Identidad autenticada y sus capacidades. */
+export interface AuthUser {
+  id: number;
+  username: string;
+  displayName: string | null;
+  roles: string[];
+  permissions: string[];
+  mustChangePassword: boolean;
+}
+
+/** Datos públicos de la sesión que el cliente necesita para operar. */
+export interface SessionInfo {
+  id: string;
+  csrfToken: string;
+  expiresAt: string;
 }

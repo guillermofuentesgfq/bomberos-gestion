@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { secureHeaders } from 'hono/secure-headers';
 import type { Env, Variables } from './lib/env';
 import { AppError } from './lib/errors';
-import { jsonError } from './lib/http';
+import { fail } from './lib/http';
 import { api } from './routes';
 
 /** Tamaño máximo del cuerpo para endpoints JSON (las subidas usan su propio límite). */
@@ -74,7 +74,7 @@ app.get('*', (c) => c.env.ASSETS.fetch(c.req.raw));
 // --- Manejo uniforme de errores --------------------------------------------
 app.onError((err, c) => {
   if (err instanceof AppError) {
-    return jsonError(err);
+    return fail(c, err);
   }
   // Error no previsto: se registra sin datos sensibles y se responde genérico.
   console.error(
@@ -85,9 +85,9 @@ app.onError((err, c) => {
       message: err instanceof Error ? err.message : 'unknown',
     }),
   );
-  return jsonError(AppError.internal());
+  return fail(c, AppError.internal());
 });
 
-app.notFound(() => jsonError(AppError.notFound('Recurso no encontrado.')));
+app.notFound((c) => fail(c, AppError.notFound('Recurso no encontrado.')));
 
 export default app;
