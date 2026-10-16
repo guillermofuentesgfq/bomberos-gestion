@@ -50,6 +50,84 @@ Se instalan **por máquina** (`~/.agents/skills/`), no se incluyen en el
 repositorio. Solo se commitean los artefactos de diseño generados. La telemetría
 de impeccable debe permanecer desactivada.
 
+## Trampas conocidas
+
+Estas ya han costado tiempo. Si vas a tocar alguna de estas zonas, léelas antes.
+
+### Esquema y migraciones
+
+- **Antes de escribir una migración, mira el esquema existente.** Hay columnas que
+  llevan ahí desde la primera migración y nunca se conectaron
+  (`persons.photo_object_id` era una, y el dominio de usuarios y permisos estaba
+  entero **sin ningún endpoint**). Conectar lo que ya existe es más barato y más
+  seguro que migrar. Vale igual para el código: `listUsersWithRoles` existía
+  completo y no lo llamaba nadie.
+- **Los nombres archivados siguen ocupados.** `UNIQUE(name)` cubre también las
+  filas con `archived_at`, así que crear una entrada cuyo nombre coincida con una
+  archivada devuelve `409`. Afecta a `locations`, `categories`, `material_types`,
+  `position_types` y `qualities`.
+- **`institution_settings` es clave/valor:** añadir un ajuste nuevo no necesita
+  migración.
+- Tras cambiar migraciones: `npm run db:migrate:local` y **reiniciar** `wrangler dev`.
+
+### Rutas y configuración
+
+- **`run_worker_first` en `wrangler.jsonc`.** Los *assets* ganan al Worker, así que
+  una ruta nueva con pinta de archivo estático (`/favicon.ico`, `/sitemap.xml`…)
+  hay que añadirla a esa lista o no llegará nunca al Worker.
+- **`updateInstitutionConfig` usa una lista blanca explícita de claves.** Una clave
+  nueva se ignora **en silencio** si no se añade ahí.
+- `wrangler` lee **`.dev.vars`**, no `.env`.
+
+### Permisos y seguridad
+
+- **`AUTH_PASSWORD_PEPPER` es opcional en el tipo `Env`.** Compruébalo antes de
+  usarlo, como hace `services/auth.ts`; si no, no compila.
+- **No se puede dejar la instalación sin administrador activo.** Al tocar usuarios:
+  no puedes desactivarte ni quitarte el rol de administrador a ti mismo, no puedes
+  archivar tu propia cuenta, y debe quedar siempre al menos un administrador activo.
+- **Restablecer una contraseña debe cerrar las sesiones abiertas** de esa persona.
+  Si no, quien tuviera la contraseña anterior sigue dentro.
+- Contraseñas de **12 caracteres** como mínimo; 5 intentos fallidos bloquean la
+  cuenta 15 minutos.
+
+### Archivos
+
+- **R2 nunca es público.** Todo pasa por `GET /api/v1/files/:id`, con sesión y
+  permiso. Solo los objetos con `is_public = 1` se sirven sin autenticación.
+- **La foto de una persona es un dato personal: siempre privada.** Nunca al sitio
+  público.
+- **Límite conocido:** el acceso a un objeto privado se comprueba **por permiso
+  general, no por objeto** (`inventory.read` o `site.read` bastan) y los
+  identificadores son correlativos. Ver `docs/ARCHITECTURE.md`.
+
+### Interfaz y diseño
+
+- **Sin *kickers*:** nada de rótulo pequeño en mayúsculas con `tracking` encima de
+  un titular. La jerarquía la sostienen tamaño, peso y espacio.
+- **La tipografía no se cambia.** Atkinson Hyperlegible está elegida por legibilidad
+  y va autoalojada: no cargues fuentes externas.
+- **No añadas dependencias** si se puede resolver con lo que ya hay.
+- **`index.css` contiene el sistema de impresión** de los documentos oficiales
+  (`.acta-*`, `.inventory-*`, `.print-*`, `.no-print`, `@media print`, `@page`).
+  Añade reglas; no modifiques ni borres las existentes.
+- **Tailwind v4:** `translate-*` y `scale-*` emiten las propiedades CSS `translate`
+  y `scale`, **no** `transform`. Una `transition-transform` no las anima; usa
+  `transition-[translate,opacity]`.
+- **Respeta `prefers-reduced-motion`** y anima solo `transform` y `opacity`.
+
+### Pruebas
+
+- **El helper `ApiClient` añade el token CSRF en `post`/`put`/`del`, pero no en
+  `request()` directo.** Si usas `request()` contra una ruta con `requireCsrf`,
+  pasa `csrf: true` o recibirás un `403` que **parece** un fallo de permisos y no lo
+  es.
+- **`tests/setup.ts` conserva las tablas de referencia y siembra `qualities`.**
+  `position_types` y `qualities` no se limpian entre casos: usa nombres únicos por
+  caso.
+- La base de datos de cada archivo de prueba es independiente; las tablas de datos
+  se vacían antes de cada caso.
+
 ## Pull requests
 
 1. Crea una rama descriptiva (`feat/…`, `fix/…`, `docs/…`).
