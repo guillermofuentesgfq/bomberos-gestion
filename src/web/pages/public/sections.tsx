@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { cx } from '../../lib/cx';
 import { formatDate, formatDateRange } from '../../lib/format';
+import { toPlainText } from '../../lib/richtext';
 import { useSeo } from '../../lib/seo';
 import type {
   PublicActivitySummary,
@@ -187,8 +188,11 @@ function HeroSection() {
                 {institution.number}
               </p>
             ) : null}
-            {institution.description ? (
-              <p className="text-lg text-pretty text-ink-muted">{institution.description}</p>
+            {toPlainText(institution.description, 1) ? (
+              <div
+                className="richtext text-lg text-ink-muted"
+                dangerouslySetInnerHTML={{ __html: institution.description }}
+              />
             ) : null}
             <div className="flex flex-wrap gap-3">
               <AppLink
@@ -247,16 +251,18 @@ function AboutSection() {
   if (!site) return null;
   const { institution } = site;
   const paragraphs = [institution.description, institution.corpsInfo].filter(
-    (text) => text.trim().length > 0,
+    (text) => toPlainText(text, 1) !== null,
   );
   if (paragraphs.length === 0) return null;
   return (
     <SectionShell id="about" title="La compañía">
       <div className="flex max-w-[68ch] flex-col gap-4">
-        {paragraphs.map((text, index) => (
-          <p key={index} className="text-lg whitespace-pre-line text-ink-muted">
-            {text}
-          </p>
+        {paragraphs.map((html, index) => (
+          <div
+            key={index}
+            className="richtext text-lg text-ink-muted"
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
         ))}
       </div>
     </SectionShell>
@@ -267,12 +273,13 @@ function HistorySection() {
   const { site } = useSite();
   if (!site) return null;
   const { institution } = site;
-  if (!institution.history.trim()) return null;
+  if (toPlainText(institution.history, 1) === null) return null;
   return (
     <SectionShell id="history" title="Nuestra historia" tone="muted">
-      <p className="max-w-[68ch] text-lg whitespace-pre-line text-ink-muted">
-        {institution.history}
-      </p>
+      <div
+        className="richtext max-w-[68ch] text-lg text-ink-muted"
+        dangerouslySetInnerHTML={{ __html: institution.history }}
+      />
     </SectionShell>
   );
 }
@@ -285,7 +292,7 @@ function MissionSection() {
     { title: 'Misión', text: mission },
     { title: 'Visión', text: vision },
     { title: 'Valores', text: values },
-  ].filter((block) => block.text.trim().length > 0);
+  ].filter((block) => toPlainText(block.text, 1) !== null);
   if (blocks.length === 0) return null;
   return (
     <SectionShell id="mission" title="Misión, visión y valores">
@@ -296,7 +303,10 @@ function MissionSection() {
             className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-line bg-muted p-6 shadow-sm"
           >
             <h3 className="text-xl font-bold text-ink">{block.title}</h3>
-            <p className="text-base whitespace-pre-line text-ink-muted">{block.text}</p>
+            <div
+              className="richtext text-base text-ink-muted"
+              dangerouslySetInnerHTML={{ __html: block.text }}
+            />
           </div>
         ))}
       </div>
@@ -533,7 +543,7 @@ export function LandingPage() {
 
   useSeo({
     title: site?.seo.title || institutionName,
-    description: site?.seo.description || site?.institution.description || null,
+    description: site?.seo.description || toPlainText(site?.institution.description, 160) || null,
     image: site?.seo.ogImage?.url ?? site?.institution.shield?.url ?? null,
     type: 'website',
   });
@@ -560,12 +570,12 @@ function isConfigured(site: ReturnType<typeof useSite>['site']): boolean {
   const institution = site.institution;
   return Boolean(
     institution.name.trim() ||
-      institution.description.trim() ||
-      institution.history.trim() ||
-      institution.mission.trim() ||
-      institution.vision.trim() ||
-      institution.values.trim() ||
-      institution.corpsInfo.trim() ||
+      toPlainText(institution.description, 1) ||
+      toPlainText(institution.history, 1) ||
+      toPlainText(institution.mission, 1) ||
+      toPlainText(institution.vision, 1) ||
+      toPlainText(institution.values, 1) ||
+      toPlainText(institution.corpsInfo, 1) ||
       institution.specialties.length > 0 ||
       site.news.length > 0 ||
       site.activities.length > 0 ||

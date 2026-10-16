@@ -20,6 +20,7 @@ import {
   updateMaterial,
   writeOff,
 } from '../services/inventory';
+import { actaInstitution } from '../services/actas';
 import {
   inFlightError,
   reserveIdempotency,
@@ -430,6 +431,47 @@ inventoryRoutes.post('/writeoffs', requireAuth, requireCsrf, requirePermission('
   }
   return ok(c, result, 201);
 });
+
+// --- Acta de baja -----------------------------------------------------------
+
+/**
+ * Acta de una baja. Cada baja es una línea (material, cantidad, motivo y quién
+ * autoriza), así que el acta lleva un único elemento. Imprimible: el PDF lo
+ * produce el navegador.
+ */
+inventoryRoutes.get(
+  '/writeoffs/:id/acta',
+  requireAuth,
+  requirePermission('inventory.read'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'baja');
+    const db = c.env.DB;
+    const writeoff = await materials.findWriteOffById(db, id);
+    if (!writeoff) throw AppError.notFound('Acta no encontrada.');
+
+    return ok(c, {
+      institution: await actaInstitution(db),
+      acta: {
+        kind: 'baja',
+        id: writeoff.id,
+        createdAt: writeoff.created_at,
+        reason: writeoff.reason,
+        authorizedBy: writeoff.authorized_by,
+        locationName: writeoff.location_name,
+        lines: [
+          {
+            code: writeoff.code,
+            itemName: writeoff.item_name,
+            size: writeoff.size,
+            quantity: writeoff.quantity,
+            priorCondition: writeoff.prior_condition,
+            priorConditionName: writeoff.prior_condition_name,
+          },
+        ],
+      },
+    });
+  },
+);
 
 // --- Movimientos ------------------------------------------------------------
 

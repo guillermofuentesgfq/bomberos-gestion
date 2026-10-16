@@ -7,6 +7,8 @@ import { LoginPage } from './pages/LoginPage';
 import { SetupPage } from './pages/SetupPage';
 import { PublicApp } from './pages/public/PublicApp';
 import {
+  ActaBajaPage,
+  ActaEntregaPage,
   AdminLayout,
   ContentAdminPage,
   InventoryCatalogPage,
@@ -58,6 +60,23 @@ function AdminPanel() {
   if (!user || !csrfToken) return null;
 
   const currentPath = normalizeAdminPath(path);
+
+  // Las actas son documentos imprimibles: se sirven sueltas, sin el shell del
+  // panel, para que la impresión no arrastre la navegación ni la cabecera.
+  const actaEntrega = /^\/admin\/actas\/entrega\/(\d+)\/(.+)$/.exec(currentPath);
+  if (actaEntrega?.[1] !== undefined && actaEntrega[2] !== undefined) {
+    return (
+      <ActaEntregaPage
+        personId={Number(actaEntrega[1])}
+        batchId={decodeURIComponent(actaEntrega[2])}
+      />
+    );
+  }
+
+  const actaBaja = /^\/admin\/actas\/baja\/(\d+)$/.exec(currentPath);
+  if (actaBaja?.[1] !== undefined) {
+    return <ActaBajaPage writeoffId={Number(actaBaja[1])} />;
+  }
 
   async function handleLogout() {
     setLoggingOut(true);

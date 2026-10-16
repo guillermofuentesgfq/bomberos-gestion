@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from '../../lib/router';
+import { toPlainText } from '../../lib/richtext';
 import { useSite } from './SiteContext';
 import type { SocialLink } from '../../lib/publicApi';
 
@@ -174,8 +175,11 @@ export function SiteFooter() {
         <div className="flex flex-col gap-3">
           <p className="text-lg font-bold text-ink">{displayName}</p>
           {institution.number ? <p className="text-sm text-ink-muted">{institution.number}</p> : null}
-          {institution.description ? (
-            <p className="max-w-[60ch] text-sm text-ink-muted">{institution.description}</p>
+          {toPlainText(institution.description, 1) !== null ? (
+            <div
+              className="richtext max-w-[60ch] text-sm text-ink-muted"
+              dangerouslySetInnerHTML={{ __html: institution.description }}
+            />
           ) : null}
         </div>
 

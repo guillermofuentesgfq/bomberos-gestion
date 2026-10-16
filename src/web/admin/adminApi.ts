@@ -648,3 +648,97 @@ export function createReturn(
     body: input,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Actas imprimibles
+// ---------------------------------------------------------------------------
+
+/**
+ * Datos de la institución que encabezan toda acta (membrete).
+ *
+ * Los campos de texto llegan sin recortar y pueden venir vacíos: la pantalla
+ * omite los tramos que no aportan.
+ */
+export interface ActaInstitution {
+  name: string;
+  number: string;
+  address: string;
+  commune: string;
+  region: string;
+  country: string;
+  emergencyNumber: string;
+  phones: string[];
+  shieldObjectId: number | null;
+  corpsInfo: string;
+}
+
+/** Línea del acta de entrega, con condición de salida y devolución parcial. */
+export interface ActaEntregaLine {
+  code: string;
+  itemName: string;
+  size: string | null;
+  serial: string | null;
+  quantity: number;
+  returnedQty: number;
+  conditionOut: string | null;
+  conditionOutName: string | null;
+}
+
+export interface ActaEntrega {
+  institution: ActaInstitution;
+  acta: {
+    kind: 'entrega';
+    batchId: string;
+    deliveredAt: string;
+    deliveredBy: string | null;
+    notes: string | null;
+    person: {
+      id: number;
+      fullName: string;
+      rut: string | null;
+      registryNo: string | null;
+      qualityName: string | null;
+    };
+    lines: ActaEntregaLine[];
+  };
+}
+
+/** `GET /persons/:personId/batches/:batchId/acta` (permiso `persons.read`). */
+export function fetchActaEntrega(
+  personId: number,
+  batchId: string,
+  signal?: AbortSignal,
+): Promise<ActaEntrega> {
+  return request<ActaEntrega>(
+    `${BASE}/persons/${personId}/batches/${encodeURIComponent(batchId)}/acta`,
+    { signal },
+  );
+}
+
+/** Línea del acta de baja con la condición previa del material. */
+export interface ActaBajaLine {
+  code: string | null;
+  itemName: string | null;
+  size: string | null;
+  quantity: number;
+  priorCondition: string | null;
+  priorConditionName: string | null;
+}
+
+export interface ActaBaja {
+  institution: ActaInstitution;
+  acta: {
+    kind: 'baja';
+    id: number;
+    createdAt: string;
+    reason: string;
+    authorizedBy: string;
+    locationName: string | null;
+    lines: ActaBajaLine[];
+  };
+}
+
+/** `GET /inventory/writeoffs/:id/acta` (permiso `inventory.read`). */
+export function fetchActaBaja(id: number, signal?: AbortSignal): Promise<ActaBaja> {
+  return request<ActaBaja>(`${BASE}/inventory/writeoffs/${id}/acta`, { signal });
+}

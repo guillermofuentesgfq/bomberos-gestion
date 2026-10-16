@@ -298,3 +298,34 @@ export async function stockSummary(db: D1Database): Promise<StockSummaryRow[]> {
       GROUP BY s.material_id`,
   );
 }
+
+/** Una baja con los nombres legibles, para su acta. */
+export interface WriteOffActaRow {
+  id: number;
+  created_at: string;
+  reason: string;
+  authorized_by: string;
+  quantity: number;
+  code: string | null;
+  item_name: string | null;
+  size: string | null;
+  prior_condition: string | null;
+  prior_condition_name: string | null;
+  location_name: string | null;
+}
+
+export async function findWriteOffById(
+  db: D1Database,
+  id: number,
+): Promise<WriteOffActaRow | null> {
+  return first<WriteOffActaRow>(
+    db,
+    `SELECT w.id, w.created_at, w.reason, w.authorized_by, w.quantity, w.code, w.item_name,
+            w.size, w.prior_condition, c.name AS prior_condition_name, l.name AS location_name
+       FROM writeoffs w
+       LEFT JOIN material_conditions c ON c.code = w.prior_condition
+       LEFT JOIN locations l ON l.id = w.location_id
+      WHERE w.id = ?`,
+    id,
+  );
+}

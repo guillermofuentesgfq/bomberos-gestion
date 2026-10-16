@@ -281,3 +281,68 @@ p {
 .richtext-inline :where(h2, h3, h4) {
   font-size: 1em;
 }
+
+/*
+ * Actas imprimibles (entrega y baja).
+ *
+ * El PDF lo produce el navegador desde el diálogo de impresión, así que `@page`
+ * fija el margen del papel. El resto vive en `@media print` para que las actas
+ * salgan en claro aunque el sistema esté en modo oscuro: nunca se imprime un
+ * fondo oscuro.
+ */
+@page {
+  margin: 18mm;
+}
+
+@media print {
+  /* El shell de la pantalla (botón Imprimir, enlace Volver) no se imprime. */
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .acta-page {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .acta-page {
+    min-height: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Fuerza impresión en claro dentro del documento, incluidos los tokens. */
+  .acta-document,
+  .acta-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img) {
+    background-color: transparent !important;
+    color: #000000 !important;
+  }
+
+  .acta-document {
+    background-color: #ffffff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Cualquier borde del documento (membrete, tabla, firmas) sale en negro. */
+  .acta-document,
+  .acta-document * {
+    border-color: #000000 !important;
+  }
+
+  /* Repite el encabezado de la tabla y evita cortes a mitad de fila o firma. */
+  .acta-document thead {
+    display: table-header-group;
+  }
+
+  .acta-table tr,
+  .acta-signature {
+    break-inside: avoid;
+  }
+
+  .acta-document :where(h1, h2) {
+    break-after: avoid;
+  }
+}

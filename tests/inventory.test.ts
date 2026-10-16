@@ -344,3 +344,114 @@ describe('edición de materiales y catálogo', () => {
     expect(denied.status).toBe(403);
   });
 });
+
+describe('actas imprimibles', () => {
+  it('el acta de entrega incluye la entrega completa, aunque ya se haya devuelto algo', async () => {
+    const { api, materialId, personId, bodegaId } = await bootstrap(3);
+
+    // El membrete debe llevar los datos de la institución configurada.
+    await api.put('/api/v1/site/institution', {
+      name: 'Bomba Carlos Collins',
+      number: 'Segunda Compañía',
+    });
+
+    const assigned = await api.post<{ batchId: string }>(
+      `/api/v1/persons/${personId}/assignments`,
+      {
+        deliveredBy: 'Capitán Pérez',
+        notes: 'Entrega de prueba',
+        lines: [{ materialId, locationId: bodegaId, quantity: 2, conditionOut: 'operativo' }],
+      },
+    );
+    expect(assigned.status).toBe(201);
+    const batchId = assigned.body.data?.batchId ?? '';
+    expect(batchId.length).toBeGreaterThan(0);
+
+    // Devolución parcial: el acta debe seguir documentando la entrega completa.
+    const detail = await api.get<{
+      assignments: { id: number; quantity: number; returned_qty: number }[];
+    }>(`/api/v1/persons/${personId}`);
+    const lineId = detail.body.data?.assignments[0]?.id ?? 0;
+    expect(lineId).toBeGreaterThan(0);
+
+    const returned = await api.post(`/api/v1/persons/${personId}/returns`, {
+      receivedBy: 'Teniente Soto',
+      toLocationId: bodegaId,
+      conditionCode: 'operativo',
+      lines: [{ assignmentLineId: lineId, quantity: 1 }],
+    });
+    expect(returned.status).toBe(201);
+
+    const acta = await api.get<{
+      institution: { name: string };
+      acta: {
+        kind: string;
+        deliveredBy: string | null;
+        notes: string | null;
+        person: { fullName: string };
+        lines: { quantity: number; returnedQty: number; conditionOutName: string | null }[];
+      };
+    }>(`/api/v1/persons/${personId}/batches/${encodeURIComponent(batchId)}/acta`);
+
+    expect(acta.status).toBe(200);
+    expect(acta.body.data?.acta.kind).toBe('entrega');
+    expect(acta.body.data?.acta.deliveredBy).toBe('Capitán Pérez');
+    expect(acta.body.data?.acta.notes).toBe('Entrega de prueba');
+    expect(acta.body.data?.acta.person.fullName).toBe('Integrante de Prueba');
+    expect(acta.body.data?.institution.name).toBe('Bomba Carlos Collins');
+    expect(acta.body.data?.institution.number).toBe('Segunda Compañía');
+
+    const line = acta.body.data?.acta.lines[0];
+    expect(line?.quantity).toBe(2);
+    expect(line?.returnedQty).toBe(1);
+    expect(line?.conditionOutName).toBeTruthy();
+  });
+
+  it('el acta de baja incluye motivo, quién autoriza y la condición anterior', async () => {
+    const { api, materialId, bodegaId } = await bootstrap(2);
+
+    await api.put('/api/v1/site/institution', { name: 'Bomba Carlos Collins' });
+
+    const baja = await api.post<{ writeoffId: number }>('/api/v1/inventory/writeoffs', {
+      materialId,
+      locationId: bodegaId,
+      conditionCode: 'operativo',
+      quantity: 1,
+      reason: 'Daño irreparable en el casco',
+      authorizedBy: 'Comandante Rivas',
+    });
+    expect(baja.status).toBe(201);
+    const writeoffId = baja.body.data?.writeoffId ?? 0;
+    expect(writeoffId).toBeGreaterThan(0);
+
+    const acta = await api.get<{
+      institution: { name: string };
+      acta: {
+        kind: string;
+        reason: string;
+        authorizedBy: string;
+        locationName: string | null;
+        lines: { itemName: string | null; quantity: number; priorConditionName: string | null }[];
+      };
+    }>(`/api/v1/inventory/writeoffs/${writeoffId}/acta`);
+
+    expect(acta.status).toBe(200);
+    expect(acta.body.data?.acta.kind).toBe('baja');
+    expect(acta.body.data?.acta.reason).toBe('Daño irreparable en el casco');
+    expect(acta.body.data?.acta.authorizedBy).toBe('Comandante Rivas');
+    expect(acta.body.data?.acta.locationName).toBe('Bodega');
+    expect(acta.body.data?.institution.name).toBe('Bomba Carlos Collins');
+    expect(acta.body.data?.acta.lines[0]?.quantity).toBe(1);
+    expect(acta.body.data?.acta.lines[0]?.priorConditionName).toBeTruthy();
+  });
+
+  it('responde 404 cuando el acta no existe', async () => {
+    const { api, personId } = await bootstrap(1);
+
+    const sinEntrega = await api.get(`/api/v1/persons/${personId}/batches/no-existe/acta`);
+    expect(sinEntrega.status).toBe(404);
+
+    const sinBaja = await api.get('/api/v1/inventory/writeoffs/99999/acta');
+    expect(sinBaja.status).toBe(404);
+  });
+});

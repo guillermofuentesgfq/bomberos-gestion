@@ -865,6 +865,9 @@ export function PersonDetailPage({
                       <th scope="col" className="px-3 py-2 font-bold text-ink">
                         Entregado el
                       </th>
+                      <th scope="col" className="px-3 py-2 font-bold text-ink">
+                        Acta
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -892,6 +895,15 @@ export function PersonDetailPage({
                         </td>
                         <td className="px-3 py-2 text-ink">
                           {formatDate(line.delivered_at) ?? line.delivered_at}
+                        </td>
+                        <td className="px-3 py-2">
+                          <Link
+                            to={`/admin/actas/entrega/${personId}/${encodeURIComponent(line.batch_id)}`}
+                            aria-label={`Ver acta de entrega de ${line.item_name}`}
+                            className="inline-flex min-h-11 items-center rounded-lg border-2 border-brand px-3 text-sm font-semibold text-brand transition-colors duration-200 ease-out hover:bg-brand/5"
+                          >
+                            Acta
+                          </Link>
                         </td>
                       </tr>
                     ))}

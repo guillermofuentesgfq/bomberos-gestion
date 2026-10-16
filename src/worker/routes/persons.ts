@@ -9,6 +9,8 @@ import { actorFrom } from '../security/actor';
 import { CONDITION_CODES } from '../../shared/inventory';
 import * as personsRepo from '../repositories/persons';
 import * as assignmentsRepo from '../repositories/assignments';
+import * as catalog from '../repositories/catalog';
+import { actaInstitution } from '../services/actas';
 import { assignMaterial, returnMaterial } from '../services/assignments';
 import {
   inFlightError,
@@ -93,6 +95,64 @@ personRoutes.get('/:id', requireAuth, requirePermission('persons.read'), async (
   ]);
   return ok(c, { person, positions, assignments: pending });
 });
+
+/**
+ * Acta de entrega de un `batch_id`.
+ *
+ * Devuelve la entrega **completa** (incluidas las líneas ya devueltas), no solo
+ * lo pendiente: un acta documenta lo que se entregó, no lo que queda. La vista
+ * es imprimible y el PDF lo produce el navegador.
+ */
+personRoutes.get(
+  '/:id/batches/:batchId/acta',
+  requireAuth,
+  requirePermission('persons.read'),
+  async (c) => {
+    const personId = parseId(c.req.param('id'), 'persona');
+    const batchId = c.req.param('batchId');
+    if (!batchId) throw AppError.badRequest('Entrega inválida.');
+    const db = c.env.DB;
+
+    const [person, assignment, lines, conditions] = await Promise.all([
+      personsRepo.findPersonForActa(db, personId),
+      assignmentsRepo.findAssignmentByBatch(db, personId, batchId),
+      assignmentsRepo.listLinesForBatch(db, personId, batchId),
+      catalog.listConditions(db),
+    ]);
+    if (!person || !assignment) throw AppError.notFound('Acta no encontrada.');
+
+    const nameByCode = new Map(conditions.map((row) => [row.code, row.name]));
+
+    return ok(c, {
+      institution: await actaInstitution(db),
+      acta: {
+        kind: 'entrega',
+        batchId: assignment.batch_id,
+        deliveredAt: assignment.delivered_at,
+        deliveredBy: assignment.delivered_by,
+        notes: assignment.notes,
+        person: {
+          id: person.id,
+          fullName: person.full_name,
+          rut: person.rut,
+          registryNo: person.registry_no,
+          qualityName: person.quality_name,
+        },
+        lines: lines.map((line) => ({
+          code: line.code,
+          itemName: line.item_name,
+          size: line.size,
+          serial: line.serial,
+          quantity: line.quantity,
+          returnedQty: line.returned_qty,
+          conditionOut: line.condition_out,
+          conditionOutName:
+            line.condition_out === null ? null : (nameByCode.get(line.condition_out) ?? null),
+        })),
+      },
+    });
+  },
+);
 
 personRoutes.put('/:id', requireAuth, requireCsrf, requirePermission('persons.write'), async (c) => {
   const id = parseId(c.req.param('id'), 'persona');

@@ -64,6 +64,29 @@ export async function findPersonById(db: D1Database, id: number): Promise<Person
   );
 }
 
+export interface PersonActaHeader {
+  id: number;
+  full_name: string;
+  rut: string | null;
+  registry_no: string | null;
+  quality_name: string | null;
+}
+
+/** Datos mínimos de la persona para el encabezado de un acta. */
+export async function findPersonForActa(
+  db: D1Database,
+  id: number,
+): Promise<PersonActaHeader | null> {
+  return first<PersonActaHeader>(
+    db,
+    `SELECT p.id, p.full_name, p.rut, p.registry_no, q.name AS quality_name
+       FROM persons p
+       LEFT JOIN qualities q ON q.id = p.quality_id
+      WHERE p.id = ? AND p.archived_at IS NULL`,
+    id,
+  );
+}
+
 export interface PersonInput {
   fullName: string;
   rut?: string | null | undefined;

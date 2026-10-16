@@ -145,6 +145,24 @@ export async function listLinesForBatch(
   );
 }
 
+/** Cabecera de una entrega (un `batch_id` de una persona), para su acta. */
+export async function findAssignmentByBatch(
+  db: D1Database,
+  personId: number,
+  batchId: string,
+): Promise<AssignmentRow | null> {
+  return first<AssignmentRow>(
+    db,
+    `SELECT id, person_id, batch_id, delivered_at, delivered_by, notes, created_at
+       FROM assignments
+      WHERE person_id = ? AND batch_id = ?
+      ORDER BY id
+      LIMIT 1`,
+    personId,
+    batchId,
+  );
+}
+
 export async function insertReturn(
   db: D1Database,
   input: {

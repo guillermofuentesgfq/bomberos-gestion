@@ -12,8 +12,10 @@ import { Alert } from '../components/Alert';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { TextField } from '../components/TextField';
 import { ApiError } from '../lib/api';
+import { toPlainText } from '../lib/richtext';
 import { errorMessage } from './adminApi';
 import { CheckboxField, StatusMessage, TextAreaField } from './adminFields';
 import { ImageUploader } from './ImageUploader';
@@ -351,48 +353,42 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
             />
           </div>
 
-          <TextAreaField
+          <RichTextEditor
             id="inst-description"
             label="Presentación"
-            rows={3}
             value={institution.description}
-            onChange={(event) => patchInstitution('description', event.target.value)}
+            onChange={(html) => patchInstitution('description', toPlainText(html, 1) ? html : '')}
           />
-          <TextAreaField
+          <RichTextEditor
             id="inst-history"
             label="Historia"
-            rows={5}
             value={institution.history}
-            onChange={(event) => patchInstitution('history', event.target.value)}
+            onChange={(html) => patchInstitution('history', toPlainText(html, 1) ? html : '')}
           />
-          <TextAreaField
+          <RichTextEditor
             id="inst-mission"
             label="Misión"
-            rows={3}
             value={institution.mission}
-            onChange={(event) => patchInstitution('mission', event.target.value)}
+            onChange={(html) => patchInstitution('mission', toPlainText(html, 1) ? html : '')}
           />
-          <TextAreaField
+          <RichTextEditor
             id="inst-vision"
             label="Visión"
-            rows={3}
             value={institution.vision}
-            onChange={(event) => patchInstitution('vision', event.target.value)}
+            onChange={(html) => patchInstitution('vision', toPlainText(html, 1) ? html : '')}
           />
-          <TextAreaField
+          <RichTextEditor
             id="inst-values"
             label="Valores"
-            rows={3}
             value={institution.values}
-            onChange={(event) => patchInstitution('values', event.target.value)}
+            onChange={(html) => patchInstitution('values', toPlainText(html, 1) ? html : '')}
           />
-          <TextAreaField
+          <RichTextEditor
             id="inst-corps"
             label="Información del cuerpo de bomberos"
             hint="Opcional."
-            rows={3}
             value={institution.corpsInfo}
-            onChange={(event) => patchInstitution('corpsInfo', event.target.value)}
+            onChange={(html) => patchInstitution('corpsInfo', toPlainText(html, 1) ? html : '')}
           />
 
           <div className="grid gap-5 md:grid-cols-2">

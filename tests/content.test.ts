@@ -330,4 +330,37 @@ describe('texto enriquecido del contenido', () => {
       '<h2>1985</h2><p>Se funda la compañía</p><ul><li>Primera bomba</li></ul>',
     );
   });
+
+  it('sanea el texto enriquecido de la institución y lo publica saneado', async () => {
+    const api = await adminClient();
+
+    const saved = await api.put('/api/v1/site/institution', {
+      description: '<p>Presentación <strong>oficial</strong></p><script>alert(1)</script>',
+      history: '<h2>1985</h2><p>Fundación de la compañía</p>',
+      mission: '<p>Proteger la vida</p>',
+      vision: '<p>Ser referentes</p>',
+      values: '<ul><li>Servicio</li><li>Honor</li></ul>',
+      corpsInfo: '<p>Información del cuerpo</p><img src=x onerror=alert(1)>',
+    });
+    expect(saved.status).toBe(200);
+
+    const settings = await api.get<{
+      institution: { description: string; history: string; mission: string; corpsInfo: string };
+    }>('/api/v1/site/institution');
+
+    expect(settings.body.data?.institution.description).toBe(
+      '<p>Presentación <strong>oficial</strong></p>',
+    );
+    expect(settings.body.data?.institution.history).toBe('<h2>1985</h2><p>Fundación de la compañía</p>');
+    expect(settings.body.data?.institution.mission).toBe('<p>Proteger la vida</p>');
+    expect(settings.body.data?.institution.corpsInfo).toBe('<p>Información del cuerpo</p>');
+
+    // El sitio público sirve exactamente lo que se guardó, ya limpio.
+    const anonymous = new ApiClient();
+    const site = await anonymous.get<{ institution: { history: string; values: string } }>(
+      '/api/v1/site',
+    );
+    expect(site.body.data?.institution.history).toBe('<h2>1985</h2><p>Fundación de la compañía</p>');
+    expect(site.body.data?.institution.values).toBe('<ul><li>Servicio</li><li>Honor</li></ul>');
+  });
 });

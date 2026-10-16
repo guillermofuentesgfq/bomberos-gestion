@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import { MOVEMENT_TYPE_LABELS } from '../../shared/inventory';
 import { Alert } from '../components/Alert';
 import { Button } from '../components/Button';
@@ -665,7 +665,7 @@ function WriteOffForm({
   csrfToken: string;
   material: MaterialSummary;
   catalog: InventoryCatalog;
-  onDone: (message: string) => void;
+  onDone: (message: ReactNode) => void;
   onCancel: () => void;
 }) {
   const form = useForm<WriteOffFormValues>({
@@ -713,7 +713,17 @@ function WriteOffForm({
         reason,
         authorizedBy,
       });
-      onDone(`Baja N° ${result.writeoffId} registrada para «${material.name}».`);
+      onDone(
+        <>
+          Baja N° {result.writeoffId} registrada para «{material.name}».{' '}
+          <Link
+            to={`/admin/actas/baja/${result.writeoffId}`}
+            className="font-semibold underline underline-offset-2"
+          >
+            Ver acta de baja
+          </Link>
+        </>,
+      );
     } catch (error) {
       form.applyError(error);
     } finally {
@@ -956,7 +966,7 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
   const [reloadToken, setReloadToken] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [panel, setPanel] = useState<RowPanel | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<ReactNode | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
 
@@ -1006,7 +1016,7 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
   );
 
   const handlePanelDone = useCallback(
-    (message: string) => {
+    (message: ReactNode) => {
       setNotice(message);
       setPanel(null);
       reload();
@@ -1085,7 +1095,7 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
       <Card>
         <form
           role="search"
-          className="flex flex-col gap-4 md:flex-row md:items-end"
+          className="flex flex-col gap-4 md:flex-row md:items-start"
           onSubmit={(event) => event.preventDefault()}
         >
           <div className="flex-1">

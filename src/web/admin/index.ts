@@ -6,6 +6,8 @@ export { AdminLayout, ADMIN_SECTIONS, isSectionActive } from './AdminLayout';
 export type { AdminLayoutProps, AdminLayoutUser, AdminSection } from './AdminLayout';
 export { InventoryPage } from './InventoryPage';
 export { InventoryCatalogPage } from './InventoryCatalogPage';
+export { ActaEntregaPage } from './ActaEntregaPage';
+export { ActaBajaPage } from './ActaBajaPage';
 export { PersonsPage, personDetailPath } from './PersonsPage';
 export { PersonDetailPage } from './PersonDetailPage';
 export { MovementsPage } from './MovementsPage';

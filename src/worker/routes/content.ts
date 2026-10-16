@@ -74,15 +74,23 @@ const socialSchema = z.object({
   url: z.string().trim().url('La URL de la red no es válida.').max(500),
 });
 
+// El contenido enriquecido del sitio (cuerpos, resúmenes y los textos largos de
+// la institución) se guarda como HTML. Se sanea aquí, al escribir, para que en
+// la base solo haya HTML seguro: el sitio público lo inserta directamente en el
+// documento y la única defensa fiable es no guardar nada peligroso.
+const richBody = z.string().max(100_000).transform((value) => sanitizeRichText(value));
+const richText = (max: number) =>
+  z.string().trim().max(max).transform((value) => sanitizeRichText(value));
+
 const institutionSchema = z.object({
   name: z.string().trim().max(200).optional(),
   number: z.string().trim().max(40).optional(),
-  description: z.string().trim().max(2000).optional(),
-  history: z.string().max(20000).optional(),
-  mission: z.string().max(4000).optional(),
-  vision: z.string().max(4000).optional(),
-  values: z.string().max(4000).optional(),
-  corpsInfo: z.string().max(8000).optional(),
+  description: richText(2000).optional(),
+  history: richText(20_000).optional(),
+  mission: richText(4000).optional(),
+  vision: richText(4000).optional(),
+  values: richText(4000).optional(),
+  corpsInfo: richText(8000).optional(),
   shieldObjectId: z.number().int().positive().nullable().optional(),
   logoObjectId: z.number().int().positive().nullable().optional(),
   primaryColor: hexColor.optional(),
@@ -242,12 +250,6 @@ function galleryDto(row: GalleryRow) {
 }
 
 // --- Esquemas de contenido -------------------------------------------------
-
-// El contenido del sitio se escribe con un editor visual, así que se guarda
-// como HTML. Se sanea aquí, al escribir, para que en la base solo haya HTML
-// seguro: el sitio público lo inserta directamente en el documento.
-const richBody = z.string().max(100_000).transform((value) => sanitizeRichText(value));
-const richText = (max: number) => z.string().trim().max(max).transform((value) => sanitizeRichText(value));
 
 const pageSchema = z.object({
   slug: z.string().trim().max(120).optional(),

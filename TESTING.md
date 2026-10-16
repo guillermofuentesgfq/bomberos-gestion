@@ -24,7 +24,7 @@ prueba, conservando las tablas de referencia.
 
 ```
 Test Files  12 passed (12)
-     Tests  123 passed (123)
+     Tests  127 passed (127)
 ```
 
 | Archivo | Qué cubre |
@@ -38,9 +38,9 @@ Test Files  12 passed (12)
 | `src/worker/lib/zip.test.ts` | escritor ZIP sin dependencias: firmas, CRC-32, offsets |
 | `src/worker/services/xlsx.test.ts` | OOXML válido, escapado XML y **protección anti-inyección de fórmulas** |
 | `tests/auth.test.ts` | inicialización, CSRF, sesiones, fuerza bruta, permisos |
-| `tests/inventory.test.ts` | integridad de existencias, entregas, devoluciones parciales, idempotencia, concurrencia, inyección SQL, **edición de materiales, foto privada y catálogo** |
+| `tests/inventory.test.ts` | integridad de existencias, entregas, devoluciones parciales, idempotencia, concurrencia, inyección SQL, **edición de materiales, foto privada, catálogo y actas imprimibles de entrega y baja** |
 | `tests/files.test.ts` | privacidad de archivos y rechazo de contenido activo |
-| `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo** |
+| `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo (contenido y textos institucionales)** |
 
 ## Cobertura de los casos exigidos
 
@@ -49,7 +49,7 @@ Test Files  12 passed (12)
 | Acceso no autorizado a endpoints | ✅ cubierto (`401`) |
 | Operación sin permiso (modificación de roles/permisos) | ✅ cubierto (`403` con rol `viewer`) |
 | CSRF | ✅ cubierto (`403` sin cabecera, `201` con ella) |
-| XSS | ✅ cubierto: se rechaza contenido activo en archivos (SVG) y el HTML del CMS se sanea en el servidor con lista blanca al guardar (probado de extremo a extremo, incluido el `<script>` que desaparece y el `href="javascript:"` que se neutraliza) |
+| XSS | ✅ cubierto: se rechaza contenido activo en archivos (SVG) y todo el HTML enriquecido (cuerpo y resumen de contenido, y los textos institucionales de la portada) se sanea en el servidor con lista blanca al guardar — probado de extremo a extremo, incluido el `<script>` que desaparece y el `href="javascript:"` que se neutraliza |
 | Inyección SQL | ✅ cubierto (filtro con carga maliciosa devuelve lista vacía y no altera la base) |
 | Fuerza bruta | ✅ cubierto (bloqueo tras 5 fallos) |
 | Archivos inválidos | ✅ cubierto (no-imagen y SVG rechazados) |
@@ -65,6 +65,7 @@ Test Files  12 passed (12)
 | Edición de inventario | ✅ cubierto (cambio parcial que conserva los campos no enviados, código duplicado → `409`, y `403` sin permiso de escritura) |
 | Foto de material | ✅ cubierto (se asigna, aparece en listado y detalle, y se quita con `null`) |
 | Catálogo de inventario | ✅ cubierto (alta de tipos y archivado de ubicaciones: la fila se conserva) |
+| Actas imprimibles | ✅ cubierto (el acta de entrega documenta la entrega **completa** aunque haya devoluciones parciales, con el membrete de la institución; la de baja lleva motivo, quién autoriza y la condición anterior; `404` si no existe) |
 
 ## Nota
 
