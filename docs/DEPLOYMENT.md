@@ -149,11 +149,51 @@ retención la decides tú.
 
 ## 11. Configurar el dominio
 
-1. Añade tu dominio a Cloudflare (si no lo está ya) y deja que gestione su DNS.
-2. En el panel del Worker: **Settings → Domains & Routes → Add → Custom domain**,
-   y elige el subdominio (por ejemplo `gestion.bomberos.example`).
-3. Cloudflare crea el registro y el certificado. En minutos responde en HTTPS.
-4. La comprobación del servicio está en `/api/v1/health`.
+Requisito previo: el dominio tiene que estar dado de alta como **zona en tu
+cuenta de Cloudflare** (con sus servidores de nombres apuntando a Cloudflare),
+porque el dominio personalizado se crea dentro de esa cuenta. Añádelo con
+**Add a site** y cambia los servidores de nombres en tu registrador; hasta que
+propague, la zona queda «pendiente» y este paso falla.
+
+Después hay dos caminos. El segundo deja el dominio declarado en el repositorio,
+que es lo recomendado:
+
+1. **En el panel:** Workers & Pages → tu Worker → Settings → Domains & Routes →
+   Add → Custom domain, y elige el nombre (por ejemplo `tu-dominio.cl` o
+   `gestion.tu-dominio.cl`).
+
+2. **Declarado en la configuración (recomendado):** en tu
+   `wrangler.<institución>.jsonc`
+
+   ```jsonc
+   "routes": [
+     { "pattern": "tu-dominio.cl", "custom_domain": true }
+   ],
+   ```
+
+   Con `custom_domain: true` el propio despliegue crea el registro DNS y el
+   certificado: no hay que tocar el panel. Si el dominio todavía no está en tu
+   cuenta, el despliegue falla con *«Couldn't find a zone named … in this
+   account»* y no publica nada (el sitio sigue como estaba).
+
+Si ya tienes un sitio en ese mismo nombre, añadir el Worker ahí lo sustituye (la
+interfaz te avisa del registro en conflicto); para convivir con él, usa un
+subdominio.
+
+Comprobación: `/api/v1/health` responde en el dominio nuevo. Cuando funcione,
+puedes cerrar el acceso por la dirección `<worker>.<subdominio>.workers.dev`
+—dos direcciones para el mismo sitio es contenido duplicado para los buscadores—
+descomentando `"workers_dev": false` en tu configuración y volviendo a desplegar.
+No lo hagas antes: mientras el dominio propaga, `workers.dev` es tu red de
+seguridad.
+
+**El Worker no necesita que le digas cuál es el dominio.** El `sitemap.xml`, el
+`robots.txt` y las direcciones absolutas (`og:url`, `og:image`) se construyen a
+partir de la dirección por la que entra cada visita, y la sesión va en una cookie
+de ese mismo anfitrión. Por eso el mismo despliegue responde igual en
+`workers.dev`, en el dominio propio o en un subdominio de pruebas, sin
+reconfigurar nada. El campo `siteUrl` de los ajustes de SEO existe para un uso
+futuro y hoy no se consume.
 
 ## 12. Personalizar la web institucional
 

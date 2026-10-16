@@ -7,6 +7,37 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.1.1] - 2026-10-16
+
+### Corregido
+
+- **Dominio propio, documentado y declarable.** La guía de despliegue explicaba
+  el dominio solo por el panel. Ahora documenta el requisito que más fallos
+  causa —el dominio tiene que estar dado de alta como zona **en la misma cuenta
+  de Cloudflare**, o el despliegue se rechaza con *«Couldn't find a zone named …
+  in this account»*— y la forma declarada, que crea el registro y el certificado
+  desde el propio despliegue:
+
+  ```jsonc
+  "routes": [{ "pattern": "tu-dominio.cl", "custom_domain": true }]
+  ```
+
+- La plantilla de institución (`deploy/wrangler-instancia.example.jsonc`) incluye
+  ese bloque y el cierre de la dirección `workers.dev` cuando el dominio ya
+  funciona, ambos comentados para que la plantilla despliegue tal cual.
+- **Los marcadores de la plantilla estaban en mayúsculas** (`MI-INSTITUCION`,
+  `MI-BUCKET-R2`) y Wrangler los rechaza: exige nombres en minúsculas con guiones.
+  Ahora la plantilla valida tal cual, comprobado con
+  `wrangler deploy --dry-run`.
+
+### Notas
+
+- Se documenta que **el Worker no necesita saber el dominio**: el `sitemap.xml`,
+  el `robots.txt` y las direcciones absolutas se construyen con el anfitrión de
+  cada visita, así que el mismo despliegue responde igual en `workers.dev` y en
+  el dominio propio. El campo `siteUrl` de los ajustes de SEO existe para un uso
+  futuro y hoy no se consume.
+
 ## [0.1.0] - 2026-10-16
 
 Primera versión publicada. Instalación **vacía**: sin datos personales ni

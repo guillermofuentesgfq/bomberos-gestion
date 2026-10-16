@@ -22,13 +22,36 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
 
-  // Nombre del Worker en tu cuenta. Debe ser único en toda tu cuenta.
-  "name": "MI-INSTITUCION",
+  // Nombre del Worker en tu cuenta. Minúsculas y guiones, y único en la cuenta.
+  "name": "mi-institucion",
 
   // El punto de entrada no cambia: es el mismo Worker para toda institución.
   "main": "src/worker/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
+
+  // --- Dominio de la institución (opcional, pero recomendado) ---------------
+  //
+  // Con `custom_domain: true`, el propio despliegue crea el registro DNS y el
+  // certificado: no hay que tocar el panel. Requisito: el dominio tiene que
+  // estar dado de alta como zona **en esta misma cuenta de Cloudflare**; si no,
+  // el despliegue falla con «Couldn't find a zone named … in this account» y no
+  // publica nada.
+  //
+  // Está comentado a propósito: así esta plantilla despliega tal cual (en la
+  // dirección `workers.dev`) antes de que el dominio esté listo. Descoméntalo y
+  // pon tu dominio cuando lo tengas.
+  //
+  // "routes": [
+  //   { "pattern": "tu-dominio.cl", "custom_domain": true }
+  // ],
+  //
+  // Cuando el dominio funcione, puedes cerrar el acceso por la dirección
+  // `<worker>.<subdominio>.workers.dev` (dos direcciones para el mismo sitio es
+  // contenido duplicado para los buscadores). No lo hagas antes: mientras el
+  // dominio propaga, `workers.dev` es tu red de seguridad.
+  //
+  // "workers_dev": false,
 
   "assets": {
     "directory": "./dist/web",
@@ -55,7 +78,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "MI-BASE-D1",
+      "database_name": "mi-base-d1",
       // Lo devuelve `wrangler d1 create`. Sustituye el marcador por tu UUID.
       "database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID",
       "migrations_dir": "migrations"
@@ -65,7 +88,7 @@
   "r2_buckets": [
     {
       "binding": "FILES",
-      "bucket_name": "MI-BUCKET-R2"
+      "bucket_name": "mi-bucket-r2"
     }
   ],
 
