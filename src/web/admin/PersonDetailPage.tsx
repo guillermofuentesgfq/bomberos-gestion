@@ -14,6 +14,7 @@ import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
 import { TextField } from '../components/TextField';
 import { formatDate } from '../lib/format';
+import { toPlainText } from '../lib/richtext';
 import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
 import { SelectField, StatusMessage, TextAreaField } from './adminFields';
@@ -659,12 +660,20 @@ export function PersonDetailPage({
         title={person ? person.full_name : 'Ficha de persona'}
         description="Cargos, material asignado y entregas."
         actions={
-          <Link
-            to="/admin/personas"
-            className="inline-flex min-h-11 items-center rounded-lg border-2 border-brand px-4 text-base font-semibold text-brand transition-colors duration-200 ease-out hover:bg-brand/5"
-          >
-            Volver al listado
-          </Link>
+          <>
+            <Link
+              to={`/admin/personas/${personId}/ficha`}
+              className="inline-flex min-h-11 items-center rounded-lg border-2 border-brand px-4 text-base font-semibold text-brand transition-colors duration-200 ease-out hover:bg-brand/5"
+            >
+              Ficha imprimible
+            </Link>
+            <Link
+              to="/admin/personas"
+              className="inline-flex min-h-11 items-center rounded-lg border-2 border-brand px-4 text-base font-semibold text-brand transition-colors duration-200 ease-out hover:bg-brand/5"
+            >
+              Volver al listado
+            </Link>
+          </>
         }
       />
 
@@ -750,12 +759,13 @@ export function PersonDetailPage({
                 </dd>
               </div>
             </dl>
-            {detailState.data.person.history ? (
+            {toPlainText(detailState.data.person.history, 1) ? (
               <div className="mt-4">
                 <h3 className="text-sm font-semibold text-ink-muted">Historial</h3>
-                <p className="text-base whitespace-pre-line text-ink">
-                  {detailState.data.person.history}
-                </p>
+                <div
+                  className="richtext text-base text-ink"
+                  dangerouslySetInnerHTML={{ __html: detailState.data.person.history ?? '' }}
+                />
               </div>
             ) : null}
           </Card>

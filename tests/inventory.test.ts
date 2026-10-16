@@ -612,3 +612,125 @@ describe('informes', () => {
     expect(report.body.data?.totals[0]?.belowMinStock).toBe(true);
   });
 });
+
+describe('catálogo de personas y ficha', () => {
+  // `position_types` y `qualities` son datos de referencia que las pruebas
+  // conservan entre casos (no están en el vaciado de `tests/setup.ts`) y las
+  // calidades vienen sembradas. Por eso cada caso usa nombres propios: si no,
+  // el `UNIQUE` del nombre devuelve 409 y la prueba pasaría por el motivo
+  // equivocado.
+  it('gestiona cargos y calidades: crear, editar, duplicar y archivar', async () => {
+    const { api } = await bootstrap(1);
+
+    const cargo = await api.post<{ id: number }>('/api/v1/persons/catalog/position-types', {
+      name: 'Cargo de prueba',
+    });
+    expect(cargo.status).toBe(201);
+    const cargoId = cargo.body.data?.id ?? 0;
+    expect(cargoId).toBeGreaterThan(0);
+
+    const edited = await api.put(`/api/v1/persons/catalog/position-types/${cargoId}`, {
+      name: 'Cargo de prueba (editado)',
+    });
+    expect(edited.status).toBe(200);
+
+    const catalog = await api.get<{ positionTypes: { id: number; name: string }[] }>(
+      '/api/v1/persons/catalog',
+    );
+    expect(catalog.body.data?.positionTypes.find((p) => p.id === cargoId)?.name).toBe(
+      'Cargo de prueba (editado)',
+    );
+
+    const conflict = await api.post('/api/v1/persons/catalog/position-types', {
+      name: 'Cargo de prueba (editado)',
+    });
+    expect(conflict.status).toBe(409);
+
+    const archived = await api.del(`/api/v1/persons/catalog/position-types/${cargoId}`);
+    expect(archived.status).toBe(200);
+    const after = await api.get<{ positionTypes: { id: number }[] }>('/api/v1/persons/catalog');
+    expect(after.body.data?.positionTypes.some((p) => p.id === cargoId)).toBe(false);
+
+    const calidad = await api.post<{ id: number }>('/api/v1/persons/catalog/qualities', {
+      name: 'Calidad de prueba',
+    });
+    expect(calidad.status).toBe(201);
+    const calidadId = calidad.body.data?.id ?? 0;
+    expect(calidadId).toBeGreaterThan(0);
+
+    const calidadEdit = await api.put(`/api/v1/persons/catalog/qualities/${calidadId}`, {
+      name: 'Calidad de prueba (editada)',
+    });
+    expect(calidadEdit.status).toBe(200);
+    expect((await api.del(`/api/v1/persons/catalog/qualities/${calidadId}`)).status).toBe(200);
+  });
+
+  it('responde 404 al editar o archivar una entrada que no existe', async () => {
+    const { api } = await bootstrap(1);
+
+    const edited = await api.put('/api/v1/persons/catalog/position-types/9999', { name: 'Fantasma' });
+    expect(edited.status).toBe(404);
+
+    const archived = await api.del('/api/v1/persons/catalog/qualities/9999');
+    expect(archived.status).toBe(404);
+  });
+
+  it('la ficha trae datos, cargos, notas saneadas y material pendiente', async () => {
+    const { api, materialId, personId, bodegaId } = await bootstrap(2);
+    await api.put('/api/v1/site/institution', { name: 'Bomba Carlos Collins' });
+
+    const calidad = await api.post<{ id: number }>('/api/v1/persons/catalog/qualities', {
+      name: 'Calidad de ficha',
+    });
+    expect(calidad.status).toBe(201);
+    const calidadId = calidad.body.data?.id ?? 0;
+    const cargo = await api.post<{ id: number }>('/api/v1/persons/catalog/position-types', {
+      name: 'Cargo de ficha',
+    });
+    expect(cargo.status).toBe(201);
+    const cargoId = cargo.body.data?.id ?? 0;
+
+    const updated = await api.put(`/api/v1/persons/${personId}`, {
+      fullName: 'Integrante de Prueba',
+      qualityId: calidadId,
+      history: '<p>Notas con <strong>negrita</strong></p><script>alert(1)</script>',
+    });
+    expect(updated.status).toBe(200);
+
+    const position = await api.post(`/api/v1/persons/${personId}/positions`, {
+      positionTypeId: cargoId,
+      startDate: '2024-03-01',
+    });
+    expect(position.status).toBe(201);
+    await api.post(`/api/v1/persons/${personId}/assignments`, {
+      deliveredBy: 'Capitán Pérez',
+      lines: [{ materialId, locationId: bodegaId, quantity: 2, conditionOut: 'operativo' }],
+    });
+
+    const ficha = await api.get<{
+      institution: { name: string };
+      person: { fullName: string; qualityName: string | null; history: string | null };
+      positions: { name: string; startDate: string | null }[];
+      assignments: { itemName: string; quantity: number; conditionName: string | null }[];
+      generatedAt: string;
+    }>(`/api/v1/persons/${personId}/ficha`);
+
+    expect(ficha.status).toBe(200);
+    expect(ficha.body.data?.institution.name).toBe('Bomba Carlos Collins');
+    expect(ficha.body.data?.person.fullName).toBe('Integrante de Prueba');
+    expect(ficha.body.data?.person.qualityName).toBe('Calidad de ficha');
+    // Las notas se sanean al guardar: fuera el script, dentro el formato.
+    expect(ficha.body.data?.person.history).toBe('<p>Notas con <strong>negrita</strong></p>');
+    expect(ficha.body.data?.positions[0]?.name).toBe('Cargo de ficha');
+    expect(ficha.body.data?.positions[0]?.startDate).toBe('2024-03-01');
+    expect(ficha.body.data?.assignments[0]?.quantity).toBe(2);
+    expect(ficha.body.data?.assignments[0]?.conditionName).toBeTruthy();
+    expect(ficha.body.data?.generatedAt).toBeTruthy();
+  });
+
+  it('responde 404 si la ficha no existe', async () => {
+    const { api } = await bootstrap(1);
+    const missing = await api.get('/api/v1/persons/99999/ficha');
+    expect(missing.status).toBe(404);
+  });
+});

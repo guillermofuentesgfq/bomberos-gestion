@@ -42,21 +42,52 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
 ];
 
 /**
- * Sub-secciones de Inventario.
+ * Sub-secciones por área.
  *
- * El catálogo es una página propia y sin esta barra quedaría sin forma de
- * llegarse en cuanto existiera una ubicación (el único enlace vivía en el aviso
- * de "todavía no hay ubicaciones").
+ * Una sección con más de una página necesita su propia barra para que todas
+ * sean alcanzables: el catálogo, por ejemplo, quedaba sin ninguna entrada de
+ * menú (el único enlace vivía en un aviso que solo se veía con el catálogo
+ * vacío) y era inalcanzable en cuanto hubiera un dato creado.
  */
-const INVENTORY_SECTIONS: readonly AdminSection[] = [
-  { label: 'Materiales', path: '/admin/inventario' },
-  { label: 'Catálogo', path: '/admin/inventario/catalogo' },
+const SUB_NAVS: readonly {
+  match: (path: string) => boolean;
+  label: string;
+  items: readonly AdminSection[];
+}[] = [
+  {
+    match: (path) => isUnder(path, '/admin/inventario'),
+    label: 'Secciones de inventario',
+    items: [
+      { label: 'Materiales', path: '/admin/inventario' },
+      { label: 'Catálogo', path: '/admin/inventario/catalogo' },
+    ],
+  },
+  {
+    match: (path) => isUnder(path, '/admin/personas'),
+    label: 'Secciones de personas',
+    items: [
+      { label: 'Integrantes', path: '/admin/personas' },
+      { label: 'Catálogo', path: '/admin/personas/catalogo' },
+    ],
+  },
 ];
 
-/** La ruta pertenece a la sección de Inventario. */
-function isInventoryPath(currentPath: string): boolean {
+/** La ruta está en esa sección o por debajo de ella. */
+function isUnder(currentPath: string, base: string): boolean {
   const clean = cleanPath(currentPath);
-  return clean === '/admin/inventario' || clean.startsWith('/admin/inventario/');
+  return clean === base || clean.startsWith(`${base}/`);
+}
+
+/**
+ * Sub-sección activa: la coincidencia **más larga**. Así el detalle de una
+ * persona (`/admin/personas/5`) marca «Integrantes», y no «Catálogo».
+ */
+function activeSubPath(currentPath: string, items: readonly AdminSection[]): string | null {
+  const clean = cleanPath(currentPath);
+  const matches = items
+    .filter((item) => clean === item.path || clean.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length);
+  return matches[0]?.path ?? null;
 }
 
 function cleanPath(path: string): string {
@@ -124,34 +155,36 @@ export function AdminLayout({ user, onLogout, children, currentPath }: AdminLayo
         </div>
       </nav>
 
-      {/* Sub-secciones de Inventario: el catálogo es una página aparte. */}
-      {isInventoryPath(currentPath) ? (
-        <nav aria-label="Secciones de inventario" className="border-b border-line bg-muted">
-          <div className="mx-auto w-full max-w-6xl px-6">
-            <ul className="flex flex-wrap gap-1">
-              {INVENTORY_SECTIONS.map((section) => {
-                const active = cleanPath(currentPath) === section.path;
-                return (
-                  <li key={section.path}>
-                    <Link
-                      to={section.path}
-                      aria-current={active ? 'page' : undefined}
-                      className={cx(
-                        'inline-flex min-h-10 cursor-pointer items-center border-b-2 px-3 text-sm font-semibold transition-colors duration-200 ease-out',
-                        active
-                          ? 'border-brand text-brand'
-                          : 'border-transparent text-ink-muted hover:text-ink',
-                      )}
-                    >
-                      {section.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </nav>
-      ) : null}
+      {/* Sub-secciones: el catálogo es una página aparte en cada área. */}
+      {SUB_NAVS.map(({ match, label, items }) =>
+        match(currentPath) ? (
+          <nav key={label} aria-label={label} className="border-b border-line bg-muted">
+            <div className="mx-auto w-full max-w-6xl px-6">
+              <ul className="flex flex-wrap gap-1">
+                {items.map((item) => {
+                  const active = activeSubPath(currentPath, items) === item.path;
+                  return (
+                    <li key={item.path}>
+                      <Link
+                        to={item.path}
+                        aria-current={active ? 'page' : undefined}
+                        className={cx(
+                          'inline-flex min-h-10 cursor-pointer items-center border-b-2 px-3 text-sm font-semibold transition-colors duration-200 ease-out',
+                          active
+                            ? 'border-brand text-brand'
+                            : 'border-transparent text-ink-muted hover:text-ink',
+                        )}
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </nav>
+        ) : null,
+      )}
 
       <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-6xl flex-1 px-6 py-6">
         {children}

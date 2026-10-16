@@ -604,6 +604,133 @@ export interface PersonsCatalog {
   qualities: Quality[];
 }
 
+// --- Catálogo del personal (cargos y calidades) -----------------------------
+
+export function createPositionType(
+  input: { name: string },
+  csrfToken: string,
+): Promise<{ id: number }> {
+  return request<{ id: number }>(`${BASE}/persons/catalog/position-types`, {
+    method: 'POST',
+    csrfToken,
+    body: input,
+  });
+}
+
+export function updatePositionType(
+  id: number,
+  input: { name: string },
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/persons/catalog/position-types/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
+  });
+}
+
+export function archivePositionType(id: number, csrfToken: string): Promise<{ archived: true }> {
+  return request<{ archived: true }>(`${BASE}/persons/catalog/position-types/${id}`, {
+    method: 'DELETE',
+    csrfToken,
+  });
+}
+
+export function createQuality(
+  input: { name: string },
+  csrfToken: string,
+): Promise<{ id: number }> {
+  return request<{ id: number }>(`${BASE}/persons/catalog/qualities`, {
+    method: 'POST',
+    csrfToken,
+    body: input,
+  });
+}
+
+export function updateQuality(
+  id: number,
+  input: { name: string },
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/persons/catalog/qualities/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
+  });
+}
+
+export function archiveQuality(id: number, csrfToken: string): Promise<{ archived: true }> {
+  return request<{ archived: true }>(`${BASE}/persons/catalog/qualities/${id}`, {
+    method: 'DELETE',
+    csrfToken,
+  });
+}
+
+// --- Ficha imprimible de una persona ----------------------------------------
+
+export interface PersonFichaInstitution {
+  name: string;
+  number: string;
+  address: string;
+  commune: string;
+  region: string;
+  country: string;
+  emergencyNumber: string;
+  phones: string[];
+  shieldObjectId: number | null;
+  logoObjectId: number | null;
+}
+
+export interface PersonFichaData {
+  id: number;
+  fullName: string;
+  rut: string | null;
+  registryNo: string | null;
+  qualityName: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  birthDate: string | null;
+  joinDate: string | null;
+  emergencyName: string | null;
+  emergencyPhone: string | null;
+  /** Notas de la persona, en HTML saneado por el servidor. */
+  history: string | null;
+  isActive: boolean;
+}
+
+export interface PersonFichaPosition {
+  id: number;
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  notes: string | null;
+}
+
+export interface PersonFichaAssignment {
+  code: string;
+  itemName: string;
+  size: string | null;
+  serial: string | null;
+  quantity: number;
+  returnedQty: number;
+  conditionName: string | null;
+}
+
+export interface PersonFicha {
+  institution: PersonFichaInstitution;
+  person: PersonFichaData;
+  positions: PersonFichaPosition[];
+  /** Material que la persona tiene **pendiente** de devolución. */
+  assignments: PersonFichaAssignment[];
+  generatedAt: string;
+}
+
+/** `GET /persons/:id/ficha`. */
+export function fetchPersonFicha(id: number, signal?: AbortSignal): Promise<PersonFicha> {
+  return request<PersonFicha>(`${BASE}/persons/${id}/ficha`, { signal });
+}
+
 /** `GET /persons`. */
 export function fetchPersons(q?: string, signal?: AbortSignal): Promise<PersonRow[]> {
   return request<PersonRow[]>(`${BASE}/persons${query({ q })}`, { signal });

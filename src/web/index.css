@@ -289,12 +289,14 @@ p {
  * tabla englobante: al paginar, el navegador repite el encabezado de grupo. El
  * documento completo (título, tablas y firma) viaja en el único `<tbody>`.
  */
-.inventory-sheet {
+.inventory-sheet,
+.print-sheet {
   width: 100%;
   border-collapse: collapse;
 }
 
-.inventory-sheet > tbody > tr > td {
+.inventory-sheet > tbody > tr > td,
+.print-sheet > tbody > tr > td {
   padding: 0;
 }
 
@@ -319,13 +321,15 @@ p {
   html,
   body,
   .acta-page,
-  .inventory-page {
+  .inventory-page,
+  .print-page {
     background: #ffffff !important;
     color: #000000 !important;
   }
 
   .acta-page,
-  .inventory-page {
+  .inventory-page,
+  .print-page {
     min-height: 0 !important;
     padding: 0 !important;
   }
@@ -334,13 +338,16 @@ p {
   .acta-document,
   .acta-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img),
   .inventory-document,
-  .inventory-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img) {
+  .inventory-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img),
+  .print-document,
+  .print-document :where(h1, h2, h3, p, span, td, th, dt, dd, li, img) {
     background-color: transparent !important;
     color: #000000 !important;
   }
 
   .acta-document,
-  .inventory-document {
+  .inventory-document,
+  .print-document {
     background-color: #ffffff !important;
     border: 0 !important;
     box-shadow: none !important;
@@ -351,19 +358,23 @@ p {
   .acta-document,
   .acta-document *,
   .inventory-document,
-  .inventory-document * {
+  .inventory-document *,
+  .print-document,
+  .print-document * {
     border-color: #000000 !important;
   }
 
   /*
-   * Repite los encabezados de tabla y evita cortes a mitad de fila, membrete o
-   * firma. En el inventario, `.inventory-sheet > thead` es el membrete que se
-   * repite en cada página y `.inventory-table thead` el encabezado de columnas
-   * de cada tabla de contenido.
+   * Repite los encabezados de tabla y evita cortes a mitad de fila, membrete,
+   * notas o firma. En el inventario y en la ficha, `…-sheet > thead` es el
+   * membrete que se repite en cada página y `…-table thead` el encabezado de
+   * columnas de cada tabla de contenido.
    */
   .acta-document thead,
   .inventory-sheet > thead,
-  .inventory-table thead {
+  .inventory-table thead,
+  .print-sheet > thead,
+  .print-table thead {
     display: table-header-group;
   }
 
@@ -371,12 +382,17 @@ p {
   .acta-signature,
   .inventory-table tr,
   .inventory-member,
-  .inventory-signature {
+  .inventory-signature,
+  .print-table tr,
+  .print-notes,
+  .print-member,
+  .print-signature {
     break-inside: avoid;
   }
 
   .acta-document :where(h1, h2),
-  .inventory-document :where(h1, h2) {
+  .inventory-document :where(h1, h2),
+  .print-document :where(h1, h2) {
     break-after: avoid;
   }
 }

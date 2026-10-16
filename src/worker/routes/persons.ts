@@ -4,6 +4,9 @@ import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { ok } from '../lib/http';
 import { readJson } from '../lib/validate';
+import { sanitizeRichText } from '../lib/richtext';
+import { isUniqueViolation } from '../lib/sql';
+import { nowIso } from '../lib/time';
 import { requireAuth, requireCsrf, requirePermission } from '../security/middleware';
 import { actorFrom } from '../security/actor';
 import { CONDITION_CODES } from '../../shared/inventory';
@@ -30,6 +33,17 @@ function parseId(raw: string | undefined, label = 'identificador'): number {
   return parsed.data;
 }
 
+// --- Esquemas ---------------------------------------------------------------
+
+// Las notas de la persona se escriben con el editor enriquecido, así que se
+// guardan como HTML y se sanean aquí, al escribir (igual que el contenido del
+// sitio): el cliente no es una defensa.
+const richNotes = z
+  .string()
+  .trim()
+  .max(4000)
+  .transform((value) => sanitizeRichText(value));
+
 const personBodySchema = z.object({
   fullName: z.string().trim().min(1, 'El nombre es obligatorio.').max(160),
   rut: z.string().trim().max(20).nullable().optional(),
@@ -42,7 +56,7 @@ const personBodySchema = z.object({
   registryNo: z.string().trim().max(60).nullable().optional(),
   emergencyName: z.string().trim().max(160).nullable().optional(),
   emergencyPhone: z.string().trim().max(40).nullable().optional(),
-  history: z.string().trim().max(4000).nullable().optional(),
+  history: richNotes.nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -55,6 +69,87 @@ personRoutes.get('/catalog', requireAuth, requirePermission('persons.read'), asy
   ]);
   return ok(c, { positionTypes, qualities });
 });
+
+// --- Administración del catálogo (cargos y calidades) -----------------------
+//
+// Los cargos y las calidades ya asignados conservan su referencia: dar de baja
+// una entrada es archivarla, no borrarla.
+
+const catalogNameSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre es obligatorio.').max(80),
+});
+
+function catalogConflict(error: unknown, message: string): never {
+  if (isUniqueViolation(error)) throw AppError.conflict(message);
+  throw error;
+}
+
+for (const entry of [
+  {
+    segment: 'position-types',
+    label: 'cargo',
+    insert: personsRepo.insertPositionType,
+    update: personsRepo.updatePositionType,
+    archive: personsRepo.archivePositionType,
+  },
+  {
+    segment: 'qualities',
+    label: 'calidad',
+    insert: personsRepo.insertQuality,
+    update: personsRepo.updateQuality,
+    archive: personsRepo.archiveQuality,
+  },
+] as const) {
+  const duplicate = `Ya existe ${entry.label === 'cargo' ? 'ese' : 'esa'} ${entry.label} con ese nombre.`;
+  const missing = `${entry.label === 'cargo' ? 'Ese' : 'Esa'} ${entry.label} no existe.`;
+
+  personRoutes.post(
+    `/catalog/${entry.segment}`,
+    requireAuth,
+    requireCsrf,
+    requirePermission('persons.write'),
+    async (c) => {
+      const body = await readJson(c, catalogNameSchema);
+      try {
+        const id = await entry.insert(c.env.DB, body.name);
+        return ok(c, { id }, 201);
+      } catch (error) {
+        catalogConflict(error, duplicate);
+      }
+    },
+  );
+
+  personRoutes.put(
+    `/catalog/${entry.segment}/:id`,
+    requireAuth,
+    requireCsrf,
+    requirePermission('persons.write'),
+    async (c) => {
+      const id = parseId(c.req.param('id'), entry.label);
+      const body = await readJson(c, catalogNameSchema);
+      try {
+        const changes = await entry.update(c.env.DB, id, body.name);
+        if (changes === 0) throw AppError.notFound(missing);
+        return ok(c, { updated: true });
+      } catch (error) {
+        catalogConflict(error, duplicate);
+      }
+    },
+  );
+
+  personRoutes.delete(
+    `/catalog/${entry.segment}/:id`,
+    requireAuth,
+    requireCsrf,
+    requirePermission('persons.write'),
+    async (c) => {
+      const id = parseId(c.req.param('id'), entry.label);
+      const changes = await entry.archive(c.env.DB, id);
+      if (changes === 0) throw AppError.notFound(missing);
+      return ok(c, { archived: true });
+    },
+  );
+}
 
 // --- Personas ---------------------------------------------------------------
 
@@ -94,6 +189,63 @@ personRoutes.get('/:id', requireAuth, requirePermission('persons.read'), async (
     assignmentsRepo.listPendingLinesForPerson(db, id),
   ]);
   return ok(c, { person, positions, assignments: pending });
+});
+
+/**
+ * Ficha imprimible del integrante: datos, notas, cargos y el material que tiene
+ * **pendiente de devolución**. El PDF lo produce el navegador.
+ */
+personRoutes.get('/:id/ficha', requireAuth, requirePermission('persons.read'), async (c) => {
+  const id = parseId(c.req.param('id'), 'persona');
+  const db = c.env.DB;
+
+  const [person, positions, assignments, conditions] = await Promise.all([
+    personsRepo.findPersonForFicha(db, id),
+    personsRepo.listPositionsWithType(db, id),
+    assignmentsRepo.listPendingLinesForPerson(db, id),
+    catalog.listConditions(db),
+  ]);
+  if (!person) throw AppError.notFound('Ficha no encontrada.');
+
+  const nameByCode = new Map(conditions.map((row) => [row.code, row.name]));
+
+  return ok(c, {
+    institution: await actaInstitution(db),
+    person: {
+      id: person.id,
+      fullName: person.full_name,
+      rut: person.rut,
+      registryNo: person.registry_no,
+      qualityName: person.quality_name,
+      phone: person.phone,
+      email: person.email,
+      address: person.address,
+      birthDate: person.birth_date,
+      joinDate: person.join_date,
+      emergencyName: person.emergency_name,
+      emergencyPhone: person.emergency_phone,
+      history: person.history,
+      isActive: person.is_active === 1,
+    },
+    positions: positions.map((position) => ({
+      id: position.id,
+      name: position.type_name ?? position.position_label ?? 'Cargo',
+      startDate: position.start_date,
+      endDate: position.end_date,
+      notes: position.notes,
+    })),
+    assignments: assignments.map((line) => ({
+      code: line.code,
+      itemName: line.item_name,
+      size: line.size,
+      serial: line.serial,
+      quantity: line.quantity,
+      returnedQty: line.returned_qty,
+      conditionName:
+        line.condition_out === null ? null : (nameByCode.get(line.condition_out) ?? null),
+    })),
+    generatedAt: nowIso(),
+  });
 });
 
 /**

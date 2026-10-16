@@ -11,10 +11,12 @@ import { Alert } from '../components/Alert';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { TextField } from '../components/TextField';
+import { toPlainText } from '../lib/richtext';
 import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
-import { CheckboxField, SelectField, StatusMessage, TextAreaField } from './adminFields';
+import { CheckboxField, SelectField, StatusMessage } from './adminFields';
 import { useForm } from './useForm';
 import { createPerson, errorMessage, fetchPersons, fetchPersonsCatalog } from './adminApi';
 import type { CreatePersonInput, PersonRow, PersonsCatalog } from './adminApi';
@@ -91,7 +93,7 @@ function PersonCreateForm({
     if (form.values.registryNo.trim()) input.registryNo = form.values.registryNo.trim();
     if (form.values.emergencyName.trim()) input.emergencyName = form.values.emergencyName.trim();
     if (form.values.emergencyPhone.trim()) input.emergencyPhone = form.values.emergencyPhone.trim();
-    if (form.values.history.trim()) input.history = form.values.history.trim();
+    if (toPlainText(form.values.history, 1)) input.history = form.values.history;
 
     form.setSubmitting(true);
     form.setFieldErrors({});
@@ -184,11 +186,11 @@ function PersonCreateForm({
           />
         </div>
 
-        <TextAreaField
+        <RichTextEditor
           label="Historial"
           hint="Opcional. Antecedentes relevantes de la persona."
           value={form.values.history}
-          onChange={(event) => form.patch({ history: event.target.value })}
+          onChange={(html) => form.patch({ history: toPlainText(html, 1) ? html : '' })}
         />
 
         <CheckboxField

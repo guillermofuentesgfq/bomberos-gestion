@@ -24,7 +24,7 @@ prueba, conservando las tablas de referencia.
 
 ```
 Test Files  12 passed (12)
-     Tests  136 passed (136)
+     Tests  140 passed (140)
 ```
 
 | Archivo | Qué cubre |
@@ -49,7 +49,7 @@ Test Files  12 passed (12)
 | Acceso no autorizado a endpoints | ✅ cubierto (`401`) |
 | Operación sin permiso (modificación de roles/permisos) | ✅ cubierto (`403` con rol `viewer`) |
 | CSRF | ✅ cubierto (`403` sin cabecera, `201` con ella) |
-| XSS | ✅ cubierto: se rechaza contenido activo en archivos (SVG) y todo el HTML enriquecido (cuerpo y resumen de contenido, y los textos institucionales de la portada) se sanea en el servidor con lista blanca al guardar — probado de extremo a extremo, incluido el `<script>` que desaparece y el `href="javascript:"` que se neutraliza |
+| XSS | ✅ cubierto: se rechaza contenido activo en archivos (SVG) y todo el HTML enriquecido (cuerpo y resumen de contenido, textos institucionales de la portada y notas de las personas) se sanea en el servidor con lista blanca al guardar — probado de extremo a extremo, incluido el `<script>` que desaparece y el `href="javascript:"` que se neutraliza |
 | Inyección SQL | ✅ cubierto (filtro con carga maliciosa devuelve lista vacía y no altera la base) |
 | Fuerza bruta | ✅ cubierto (bloqueo tras 5 fallos) |
 | Archivos inválidos | ✅ cubierto (no-imagen y SVG rechazados) |
@@ -66,6 +66,8 @@ Test Files  12 passed (12)
 | Foto de material | ✅ cubierto (se asigna, aparece en listado y detalle, y se quita con `null`) |
 | Catálogo de inventario | ✅ cubierto (alta de tipos y archivado de ubicaciones: la fila se conserva) |
 | Edición del catálogo | ✅ cubierto (renombrar ubicaciones con su descripción, categorías y tipos —asociando la categoría—, `409` con nombre repetido y `404` si la entrada no existe) |
+| Catálogo de personas | ✅ cubierto (crear, editar, duplicar y archivar cargos y calidades, con `409` y `404`) |
+| Ficha imprimible del integrante | ✅ cubierto (datos, calidad, cargos con el nombre del cargo resuelto, material pendiente con su condición, notas saneadas y membrete institucional; `404` si la persona no existe) |
 | Actas imprimibles | ✅ cubierto (el acta de entrega documenta la entrega **completa** aunque haya devoluciones parciales, con el membrete de la institución; la de baja lleva motivo, quién autoriza y la condición anterior; `404` si no existe) |
 | Icono del sitio | ✅ cubierto (se sirve desde el escudo configurado, `404` si no hay ninguno y `404` si el escudo es privado) |
 | Foto de portada | ✅ cubierto (se publica solo si el objeto es público; una portada privada no se expone) |

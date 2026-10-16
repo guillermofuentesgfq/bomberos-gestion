@@ -16,6 +16,8 @@ import {
   InventoryPrintPage,
   MovementsPage,
   PersonDetailPage,
+  PersonFichaPage,
+  PersonsCatalogPage,
   PersonsPage,
   ReportsPage,
   SettingsPage,
@@ -85,6 +87,12 @@ function AdminPanel() {
     return <InventoryPrintPage />;
   }
 
+  // La ficha del integrante se imprime: documento suelto, sin el shell.
+  const fichaMatch = /^\/admin\/personas\/(\d+)\/ficha$/.exec(currentPath);
+  if (fichaMatch?.[1] !== undefined) {
+    return <PersonFichaPage personId={Number(fichaMatch[1])} />;
+  }
+
   async function handleLogout() {
     setLoggingOut(true);
     try {
@@ -102,6 +110,8 @@ function AdminPanel() {
     content = <PersonDetailPage csrfToken={csrfToken} personId={personId} />;
   } else if (currentPath === '/admin/personas') {
     content = <PersonsPage csrfToken={csrfToken} />;
+  } else if (currentPath === '/admin/personas/catalogo') {
+    content = <PersonsCatalogPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/movimientos') {
     content = <MovementsPage />;
   } else if (currentPath === '/admin/contenido') {

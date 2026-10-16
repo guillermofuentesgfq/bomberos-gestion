@@ -233,3 +233,110 @@ export async function listQualities(db: D1Database): Promise<{ id: number; name:
     `SELECT id, name FROM qualities WHERE archived_at IS NULL ORDER BY sort_order, name`,
   );
 }
+
+// --- Administración del catálogo de personas --------------------------------
+
+export async function insertPositionType(db: D1Database, name: string): Promise<number> {
+  const result = await run(
+    db,
+    `INSERT INTO position_types (name, sort_order) VALUES (?, 0)`,
+    name,
+  );
+  return Number(result.meta.last_row_id);
+}
+
+export async function updatePositionType(
+  db: D1Database,
+  id: number,
+  name: string,
+): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE position_types SET name = ? WHERE id = ? AND archived_at IS NULL`,
+    name,
+    id,
+  );
+  return result.meta.changes ?? 0;
+}
+
+/** Archiva, no borra: los cargos ya asignados conservan su referencia. */
+export async function archivePositionType(db: D1Database, id: number): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE position_types SET archived_at = ? WHERE id = ? AND archived_at IS NULL`,
+    nowIso(),
+    id,
+  );
+  return result.meta.changes ?? 0;
+}
+
+export async function insertQuality(db: D1Database, name: string): Promise<number> {
+  const result = await run(db, `INSERT INTO qualities (name, sort_order) VALUES (?, 0)`, name);
+  return Number(result.meta.last_row_id);
+}
+
+export async function updateQuality(db: D1Database, id: number, name: string): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE qualities SET name = ? WHERE id = ? AND archived_at IS NULL`,
+    name,
+    id,
+  );
+  return result.meta.changes ?? 0;
+}
+
+export async function archiveQuality(db: D1Database, id: number): Promise<number> {
+  const result = await run(
+    db,
+    `UPDATE qualities SET archived_at = ? WHERE id = ? AND archived_at IS NULL`,
+    nowIso(),
+    id,
+  );
+  return result.meta.changes ?? 0;
+}
+
+// --- Ficha imprimible -------------------------------------------------------
+
+export interface PersonFichaRow extends PersonRow {
+  quality_name: string | null;
+}
+
+/** La persona con el nombre de su calidad, para la ficha imprimible. */
+export async function findPersonForFicha(
+  db: D1Database,
+  id: number,
+): Promise<PersonFichaRow | null> {
+  return first<PersonFichaRow>(
+    db,
+    `SELECT p.id, p.full_name, p.rut, p.quality_id, p.phone, p.email, p.address,
+            p.birth_date, p.join_date, p.registry_no, p.emergency_name, p.emergency_phone,
+            p.history, p.is_active, p.created_at, p.updated_at, p.archived_at,
+            q.name AS quality_name
+       FROM persons p
+       LEFT JOIN qualities q ON q.id = p.quality_id
+      WHERE p.id = ? AND p.archived_at IS NULL`,
+    id,
+  );
+}
+
+export interface PositionWithTypeRow extends PositionRow {
+  type_name: string | null;
+}
+
+/** Cargos de una persona con el nombre del tipo de cargo ya resuelto. */
+export async function listPositionsWithType(
+  db: D1Database,
+  personId: number,
+): Promise<PositionWithTypeRow[]> {
+  return all<PositionWithTypeRow>(
+    db,
+    `SELECT pp.id, pp.person_id, pp.position_type_id, pp.position_label, pp.start_date,
+            pp.end_date, pp.notes, pp.created_at, pp.archived_at,
+            pt.name AS type_name
+       FROM person_positions pp
+       LEFT JOIN position_types pt ON pt.id = pp.position_type_id
+      WHERE pp.person_id = ? AND pp.archived_at IS NULL
+      ORDER BY COALESCE(pp.start_date, '') DESC, pp.id DESC`,
+    personId,
+  );
+}
