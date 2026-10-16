@@ -180,6 +180,22 @@ Si ya tienes un sitio en ese mismo nombre, añadir el Worker ahí lo sustituye (
 interfaz te avisa del registro en conflicto); para convivir con él, usa un
 subdominio.
 
+**Si quieres que `www.tu-dominio.cl` también responda**, añádelo como una segunda
+entrada en `routes`. El mismo Worker sirve las dos direcciones, con dos
+consecuencias que conviene conocer antes:
+
+- **Sesiones separadas.** La cookie de sesión es del anfitrión: quien entre por
+  `www` no estará identificado en el dominio sin `www`, y al revés.
+- **Contenido duplicado.** El `sitemap.xml` y las direcciones que se comparten
+  (`og:url`) se construyen con el anfitrión de cada visita.
+
+Lo recomendable es elegir **una** dirección canónica y redirigir la otra con una
+**Regla de redirección** (en el panel, *Rules → Redirect Rules*; disponible en el
+plan gratuito —10 reglas y comodines— y requiere el DNS de la zona en Cloudflare,
+que es el caso al usar dominios personalizados). Un archivo `_redirects` **no**
+sirve para esto: en Workers no admite reglas por dominio y no se aplica a las
+respuestas que genera el Worker, y la portada la sirve el Worker.
+
 Comprobación: `/api/v1/health` responde en el dominio nuevo. Cuando funcione,
 puedes cerrar el acceso por la dirección `<worker>.<subdominio>.workers.dev`
 —dos direcciones para el mismo sitio es contenido duplicado para los buscadores—

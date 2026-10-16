@@ -42,8 +42,16 @@
   // dirección `workers.dev`) antes de que el dominio esté listo. Descoméntalo y
   // pon tu dominio cuando lo tengas.
   //
+  // Si quieres que también responda `www.tu-dominio.cl`, añade una segunda
+  // entrada. Ten en cuenta que entonces el sitio vive en dos direcciones, con
+  // sesiones separadas (la cookie es del anfitrión) y contenido duplicado para
+  // los buscadores: lo recomendable es elegir una canónica y redirigir la otra
+  // con una Regla de redirección de la zona. Un `_redirects` no sirve: en
+  // Workers no admite reglas por dominio.
+  //
   // "routes": [
-  //   { "pattern": "tu-dominio.cl", "custom_domain": true }
+  //   { "pattern": "tu-dominio.cl", "custom_domain": true },
+  //   { "pattern": "www.tu-dominio.cl", "custom_domain": true }
   // ],
   //
   // Cuando el dominio funcione, puedes cerrar el acceso por la dirección
