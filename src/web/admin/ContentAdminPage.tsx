@@ -21,6 +21,9 @@ import { ImageUploader } from './ImageUploader';
 import {
   addGalleryPhotos,
   createNews,
+  createPage,
+  createActivity,
+  createGallery,
   deleteGalleryPhoto,
   fetchContentList,
   fetchGalleryDetail,
@@ -109,11 +112,14 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
   const [busyId, setBusyId] = useState<number | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  // Formulario de alta de noticia.
+  // Formulario de alta de contenido (el tipo depende de la pestaña activa).
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [body, setBody] = useState('');
-  const [newsCoverObjectId, setNewsCoverObjectId] = useState<number | null>(null);
+  const [startsAt, setStartsAt] = useState('');
+  const [endsAt, setEndsAt] = useState('');
+  const [locationText, setLocationText] = useState('');
+  const [createCoverObjectId, setCreateCoverObjectId] = useState<number | null>(null);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -236,22 +242,55 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
     setCreating(true);
     setCreateError(null);
     setNotice(null);
+
+    const cleanTitle = title.trim();
+    const subtitle = summary.trim() || null;
+    const bodyText = body.trim() || null;
+
     try {
-      const created = await createNews(
-        {
-          title: title.trim(),
-          summary: summary.trim() || null,
-          body: body.trim() || null,
-          coverObjectId: newsCoverObjectId,
-        },
-        csrfToken,
-      );
+      let created: { id: number; slug: string };
+      switch (kind) {
+        case 'pages':
+          created = await createPage(
+            { title: cleanTitle, excerpt: subtitle, body: bodyText, heroObjectId: createCoverObjectId },
+            csrfToken,
+          );
+          break;
+        case 'activities':
+          created = await createActivity(
+            {
+              title: cleanTitle,
+              summary: subtitle,
+              body: bodyText,
+              startsAt: startsAt.trim() || null,
+              endsAt: endsAt.trim() || null,
+              locationText: locationText.trim() || null,
+              coverObjectId: createCoverObjectId,
+            },
+            csrfToken,
+          );
+          break;
+        case 'galleries':
+          created = await createGallery({ title: cleanTitle, description: subtitle }, csrfToken);
+          break;
+        default:
+          created = await createNews(
+            { title: cleanTitle, summary: subtitle, body: bodyText, coverObjectId: createCoverObjectId },
+            csrfToken,
+          );
+      }
+
       setTitle('');
       setSummary('');
       setBody('');
-      setNewsCoverObjectId(null);
-      setNotice(`Noticia creada como borrador (${created.slug}). Publícala cuando esté lista.`);
-      if (kind === 'news') reload();
+      setStartsAt('');
+      setEndsAt('');
+      setLocationText('');
+      setCreateCoverObjectId(null);
+      setNotice(
+        `«${cleanTitle}» se creó como borrador (${created.slug}). Publícala cuando esté lista.`,
+      );
+      reload();
     } catch (cause) {
       setCreateError(errorMessage(cause));
     } finally {
@@ -728,43 +767,90 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
       ) : null}
 
       <Card className="flex flex-col gap-4">
-        <h2 className="text-xl font-bold text-ink">Nueva noticia</h2>
+        <h2 className="text-xl font-bold text-ink">Nueva {active?.singular ?? 'contenido'}</h2>
         <p className="text-base text-ink-muted">
           Se crea como borrador. Aparecerá en el sitio público cuando pulses «Publicar».
         </p>
 
-        {createError ? <Alert tone="error" title="No se pudo crear la noticia">{createError}</Alert> : null}
+        {createError ? (
+          <Alert tone="error" title="No se pudo crear el contenido">
+            {createError}
+          </Alert>
+        ) : null}
 
         <form className="flex flex-col gap-5" onSubmit={handleCreate} noValidate>
           <TextField
-            id="news-title"
+            id="create-title"
             label="Título"
             required
             value={title}
             onChange={(event) => setTitle(event.target.value)}
           />
-          <TextField
-            id="news-summary"
-            label="Resumen"
-            hint="Una o dos frases para el listado."
-            value={summary}
-            onChange={(event) => setSummary(event.target.value)}
-          />
-          <TextAreaField
-            id="news-body"
-            label="Cuerpo"
-            rows={6}
-            value={body}
-            onChange={(event) => setBody(event.target.value)}
-          />
-          <ImageUploader
-            csrfToken={csrfToken}
-            label="Imagen de portada"
-            hint="Se muestra en el listado de noticias y en la ficha. Debe ser pública."
-            value={newsCoverObjectId}
-            onChange={setNewsCoverObjectId}
-            isPublic={true}
-          />
+
+          {kind === 'galleries' ? (
+            <TextAreaField
+              id="create-subtitle"
+              label="Descripción"
+              rows={3}
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+            />
+          ) : (
+            <TextField
+              id="create-subtitle"
+              label="Resumen"
+              hint="Una o dos frases para el listado."
+              value={summary}
+              onChange={(event) => setSummary(event.target.value)}
+            />
+          )}
+
+          {kind === 'galleries' ? null : (
+            <TextAreaField
+              id="create-body"
+              label="Cuerpo"
+              rows={6}
+              value={body}
+              onChange={(event) => setBody(event.target.value)}
+            />
+          )}
+
+          {kind === 'activities' ? (
+            <div className="grid gap-5 md:grid-cols-3">
+              <TextField
+                id="create-starts"
+                type="date"
+                label="Comienza"
+                value={startsAt}
+                onChange={(event) => setStartsAt(event.target.value)}
+              />
+              <TextField
+                id="create-ends"
+                type="date"
+                label="Termina"
+                value={endsAt}
+                onChange={(event) => setEndsAt(event.target.value)}
+              />
+              <TextField
+                id="create-location"
+                label="Lugar"
+                value={locationText}
+                onChange={(event) => setLocationText(event.target.value)}
+              />
+            </div>
+          ) : null}
+
+          {kind === 'galleries' ? null : (
+            <ImageUploader
+              csrfToken={csrfToken}
+              label={kind === 'pages' ? 'Imagen principal' : 'Imagen de portada'}
+              hint="Se muestra en el listado y en la ficha. Debe ser pública."
+              value={createCoverObjectId}
+              onChange={setCreateCoverObjectId}
+              isPublic={true}
+            />
+          )}
+
           <div>
             <Button type="submit" loading={creating}>
               {creating ? 'Creando…' : 'Crear borrador'}

@@ -57,11 +57,6 @@ export function SelectField({
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
-      {hint ? (
-        <p id={hintId} className="text-sm text-ink-muted">
-          {hint}
-        </p>
-      ) : null}
       <select
         id={fieldId}
         required={required}
@@ -77,6 +72,11 @@ export function SelectField({
           </option>
         ))}
       </select>
+      {hint ? (
+        <p id={hintId} className="text-sm text-ink-muted">
+          {hint}
+        </p>
+      ) : null}
       {error ? (
         <p id={errorId} className="text-sm font-medium text-destructive">
           {error}
@@ -116,11 +116,6 @@ export function TextAreaField({
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
-      {hint ? (
-        <p id={hintId} className="text-sm text-ink-muted">
-          {hint}
-        </p>
-      ) : null}
       <textarea
         id={fieldId}
         rows={rows}
@@ -130,6 +125,11 @@ export function TextAreaField({
         className={cx(CONTROL_CLASSES, error ? 'border-destructive' : 'border-line', className)}
         {...rest}
       />
+      {hint ? (
+        <p id={hintId} className="text-sm text-ink-muted">
+          {hint}
+        </p>
+      ) : null}
       {error ? (
         <p id={errorId} className="text-sm font-medium text-destructive">
           {error}

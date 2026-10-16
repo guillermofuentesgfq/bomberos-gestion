@@ -11,7 +11,10 @@ export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElemen
 
 /**
  * Campo de texto con etiqueta asociada, ayuda y mensaje de error inline.
- * El error se explica con `aria-invalid` y `aria-describedby`.
+ *
+ * La ayuda va **debajo** del control: así el campo siempre empieza pegado a su
+ * etiqueta y varios campos en columnas quedan alineados aunque unos tengan
+ * ayuda y otros no.
  */
 export function TextField({
   label,
@@ -35,11 +38,6 @@ export function TextField({
         {label}
         {required ? <span aria-hidden="true"> *</span> : null}
       </label>
-      {hint ? (
-        <p id={hintId} className="text-sm text-ink-muted">
-          {hint}
-        </p>
-      ) : null}
       <input
         id={fieldId}
         required={required}
@@ -52,6 +50,11 @@ export function TextField({
         )}
         {...rest}
       />
+      {hint ? (
+        <p id={hintId} className="text-sm text-ink-muted">
+          {hint}
+        </p>
+      ) : null}
       {error ? (
         <p id={errorId} className="text-sm font-medium text-destructive">
           {error}

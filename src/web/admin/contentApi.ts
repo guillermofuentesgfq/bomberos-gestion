@@ -119,6 +119,40 @@ export function createNews(
   return request('POST', '/news', csrfToken, input);
 }
 
+export function createPage(
+  input: {
+    title: string;
+    excerpt?: string | null;
+    body?: string | null;
+    heroObjectId?: number | null;
+  },
+  csrfToken: string,
+): Promise<{ id: number; slug: string }> {
+  return request('POST', '/pages', csrfToken, input);
+}
+
+export function createActivity(
+  input: {
+    title: string;
+    summary?: string | null;
+    body?: string | null;
+    startsAt?: string | null;
+    endsAt?: string | null;
+    locationText?: string | null;
+    coverObjectId?: number | null;
+  },
+  csrfToken: string,
+): Promise<{ id: number; slug: string }> {
+  return request('POST', '/activities', csrfToken, input);
+}
+
+export function createGallery(
+  input: { title: string; description?: string | null },
+  csrfToken: string,
+): Promise<{ id: number; slug: string }> {
+  return request('POST', '/galleries', csrfToken, input);
+}
+
 export function transitionContent(
   kind: ContentKind,
   id: number,
