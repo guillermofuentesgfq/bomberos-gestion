@@ -133,22 +133,31 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Datos personales: identificación, calidad y estado. */
+/** Datos personales: identificación, calidad y estado, con la foto si existe. */
 function PersonalSection({ person }: { person: PersonFichaData }) {
   return (
-    <section className="mt-6">
+    <section className="mt-6 break-inside-avoid">
       <h2 className="mb-2 text-base font-bold text-ink">Datos personales</h2>
-      <dl className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
-        <Field label="Nombre" value={person.fullName} />
-        {isNotBlank(person.rut) ? <Field label="RUT" value={person.rut} /> : null}
-        {isNotBlank(person.registryNo) ? (
-          <Field label="N.º de registro" value={person.registryNo} />
+      <div className="flex flex-wrap items-start gap-6">
+        {person.photoObjectId !== null ? (
+          <img
+            src={`/api/v1/files/${person.photoObjectId}`}
+            alt={`Fotografía de ${person.fullName}`}
+            className="h-[35mm] w-[30mm] shrink-0 rounded border border-line object-cover"
+          />
         ) : null}
-        {isNotBlank(person.qualityName) ? (
-          <Field label="Calidad" value={person.qualityName} />
-        ) : null}
-        <Field label="Estado" value={person.isActive ? 'Activo' : 'Inactivo'} />
-      </dl>
+        <dl className="grid flex-1 grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+          <Field label="Nombre" value={person.fullName} />
+          {isNotBlank(person.rut) ? <Field label="RUT" value={person.rut} /> : null}
+          {isNotBlank(person.registryNo) ? (
+            <Field label="N.º de registro" value={person.registryNo} />
+          ) : null}
+          {isNotBlank(person.qualityName) ? (
+            <Field label="Calidad" value={person.qualityName} />
+          ) : null}
+          <Field label="Estado" value={person.isActive ? 'Activo' : 'Inactivo'} />
+        </dl>
+      </div>
     </section>
   );
 }

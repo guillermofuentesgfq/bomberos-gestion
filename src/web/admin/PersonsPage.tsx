@@ -17,6 +17,7 @@ import { toPlainText } from '../lib/richtext';
 import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
 import { CheckboxField, SelectField, StatusMessage } from './adminFields';
+import { ImageUploader } from './ImageUploader';
 import { useForm } from './useForm';
 import { createPerson, errorMessage, fetchPersons, fetchPersonsCatalog } from './adminApi';
 import type { CreatePersonInput, PersonRow, PersonsCatalog } from './adminApi';
@@ -38,6 +39,7 @@ interface PersonFormValues {
   emergencyName: string;
   emergencyPhone: string;
   history: string;
+  photoObjectId: number | null;
   isActive: boolean;
 }
 
@@ -53,6 +55,7 @@ const EMPTY_PERSON_FORM: PersonFormValues = {
   emergencyName: '',
   emergencyPhone: '',
   history: '',
+  photoObjectId: null,
   isActive: true,
 };
 
@@ -83,7 +86,11 @@ function PersonCreateForm({
       return;
     }
 
-    const input: CreatePersonInput = { fullName, isActive: form.values.isActive };
+    const input: CreatePersonInput = {
+      fullName,
+      isActive: form.values.isActive,
+      photoObjectId: form.values.photoObjectId,
+    };
     if (form.values.rut.trim()) input.rut = form.values.rut.trim();
     if (form.values.qualityId) input.qualityId = Number(form.values.qualityId);
     if (form.values.phone.trim()) input.phone = form.values.phone.trim();
@@ -191,6 +198,15 @@ function PersonCreateForm({
           hint="Opcional. Antecedentes relevantes de la persona."
           value={form.values.history}
           onChange={(html) => form.patch({ history: toPlainText(html, 1) ? html : '' })}
+        />
+
+        <ImageUploader
+          csrfToken={csrfToken}
+          label="Foto"
+          hint="Dato personal: se guarda de forma privada y solo se ve con sesión iniciada (aquí y en la ficha imprimible)."
+          value={form.values.photoObjectId}
+          onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+          isPublic={false}
         />
 
         <CheckboxField

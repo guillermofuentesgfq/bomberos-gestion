@@ -283,6 +283,75 @@ p {
 }
 
 /*
+ * ---------------------------------------------------------------------------
+ * Sitio público — acabados
+ *
+ * Todo lo de este bloque es aditivo y solo afecta a la superficie pública; el
+ * sistema de impresión de los documentos oficiales queda intacto más abajo.
+ * ---------------------------------------------------------------------------
+ */
+
+/*
+ * Tarjeta con doble marco ("bisel"): un marco exterior de tono suave y radio
+ * grande envuelve la superficie interior, con un radio concéntrico menor (el
+ * marco mide 6 px, así que 1.5rem − 6px ≈ 1.125rem). La sombra es muy difusa y
+ * nunca dura, para despegar la tarjeta sin ruido. Los colores salen de tokens.
+ */
+.card-frame {
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  background-color: var(--surface-muted);
+  padding: 0.375rem;
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.04),
+    0 24px 48px -32px rgb(15 23 42 / 0.28);
+}
+
+.card-frame-inner {
+  height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 1.125rem;
+  background-color: var(--surface);
+}
+
+/*
+ * Cabecera del sitio público: anclada y a todo el ancho, translúcida con
+ * desenfoque y una línea inferior de un pelo. Al desplazar gana opacidad y una
+ * sombra suave. El `backdrop-filter` vive solo aquí (elemento pegajoso), nunca
+ * en bloques que se desplazan. Sin `backdrop-filter`, el fondo queda casi opaco
+ * para no perder legibilidad. El estado lo marca `data-scrolled`.
+ */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background-color: var(--surface);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  transition:
+    background-color 500ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 500ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.site-header[data-scrolled='true'] {
+  box-shadow:
+    0 1px 2px rgb(15 23 42 / 0.06),
+    0 16px 40px -32px rgb(15 23 42 / 0.4);
+}
+
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .site-header {
+    background-color: color-mix(in srgb, var(--surface) 78%, transparent);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+  }
+
+  .site-header[data-scrolled='true'] {
+    background-color: color-mix(in srgb, var(--surface) 90%, transparent);
+  }
+}
+
+/*
  * Inventario general imprimible.
  *
  * El membrete se repite en cada página porque vive en el `<thead>` de esta

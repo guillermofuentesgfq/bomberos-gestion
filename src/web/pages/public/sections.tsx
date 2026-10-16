@@ -11,6 +11,23 @@ import type {
 } from '../../lib/publicApi';
 import { AppLink, Container } from './SiteChrome';
 import { useSite } from './SiteContext';
+import { revealClass, useReveal } from './useReveal';
+
+/*
+ * Movimiento del sitio público.
+ *
+ * La curva es propia (rápida al salir, larga al frenar) y las duraciones son
+ * amplias; nunca `ease-in-out` ni cambios instantáneos. Los bloques entran con
+ * un fundido hacia arriba (ver `useReveal`). Las tarjetas usan `.card-frame`
+ * (index.css): marco exterior con borde de un pelo y radio grande; dentro,
+ * `.card-frame-inner` con su propio fondo y radio concéntrico, y una sombra muy
+ * difusa. Todo anima solo transformaciones (`translate`/`scale`), `opacity` y
+ * color; nunca propiedades de layout.
+ */
+const CARD_HOVER =
+  'transition-[translate,border-color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:border-accent focus-within:border-accent motion-safe:hover:-translate-y-1 motion-safe:focus-within:-translate-y-1 motion-reduce:transition-none';
+
+const CARD_MEDIA_ZOOM = 'motion-safe:group-hover/card:scale-[1.03]';
 
 /** Envoltorio de sección con anclaje y título consistente. */
 function SectionShell({
@@ -26,18 +43,27 @@ function SectionShell({
   children: ReactNode;
   tone?: 'surface' | 'muted';
 }) {
+  const { ref, revealed } = useReveal<HTMLDivElement>();
   return (
     <section
       id={id}
       className={cx(
-        'scroll-mt-6 py-12 sm:py-16',
+        'scroll-mt-32 py-16 sm:py-24 lg:py-32',
         tone === 'muted' ? 'bg-muted' : 'bg-surface',
       )}
     >
       <Container>
-        <h2 className="max-w-[70ch] text-3xl leading-tight font-bold text-ink">{title}</h2>
-        {intro ? <p className="mt-3 max-w-[65ch] text-lg text-ink-muted">{intro}</p> : null}
-        <div className="mt-8">{children}</div>
+        <div ref={ref} className={revealClass(revealed)}>
+          <h2 className="max-w-[70ch] text-3xl leading-[1.05] font-bold text-balance text-ink sm:text-4xl lg:text-5xl">
+            {title}
+          </h2>
+          {intro ? (
+            <p className="mt-5 max-w-[68ch] text-lg leading-relaxed text-ink-muted sm:text-xl">
+              {intro}
+            </p>
+          ) : null}
+          <div className="mt-12 sm:mt-16">{children}</div>
+        </div>
       </Container>
     </section>
   );
@@ -53,8 +79,10 @@ function Media({
   altFallback: string;
   className?: string | undefined;
 }) {
+  const base =
+    'object-cover transition-transform duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none';
   if (!image) {
-    return <div aria-hidden="true" className={cx('bg-muted', className)} />;
+    return <div aria-hidden="true" className={cx('bg-muted', base, className)} />;
   }
   return (
     <img
@@ -64,29 +92,109 @@ function Media({
       height={image.height ?? undefined}
       loading="lazy"
       decoding="async"
-      className={cx('object-cover', className)}
+      className={cx(base, className)}
     />
+  );
+}
+
+/*
+ * Botón tipo píldora con el icono anidado en su propio círculo. Al pasar el
+ * ratón el círculo se desplaza en diagonal; al pulsar, el botón se hunde un
+ * poco. Con movimiento reducido, ambos efectos desaparecen.
+ */
+function ArrowIcon() {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false" className="h-4 w-4">
+      <path
+        d="M4.5 10h10m0 0-4-4m4 4-4 4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+type PillVariant = 'primary' | 'outline' | 'onCover';
+
+const PILL_VARIANTS: Record<PillVariant, { shell: string; circle: string }> = {
+  primary: {
+    shell: 'bg-accent text-white hover:bg-accent-strong',
+    circle: 'bg-white/20 text-white',
+  },
+  outline: {
+    shell: 'border border-line bg-surface text-ink hover:bg-muted',
+    circle: 'bg-muted text-ink',
+  },
+  onCover: {
+    shell: 'border border-white/60 bg-white/10 text-white hover:bg-white/20',
+    circle: 'bg-white/20 text-white',
+  },
+};
+
+function PillLink({
+  to,
+  children,
+  variant = 'primary',
+}: {
+  to: string;
+  children: ReactNode;
+  variant?: PillVariant;
+}) {
+  const tokens = PILL_VARIANTS[variant];
+  return (
+    <AppLink
+      to={to}
+      className={cx(
+        'group inline-flex min-h-12 items-center gap-2.5 rounded-full py-1.5 pr-1.5 pl-6 text-base font-semibold',
+        'transition-[scale,background-color,border-color,color] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]',
+        'active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100',
+        tokens.shell,
+      )}
+    >
+      <span>{children}</span>
+      <span
+        aria-hidden="true"
+        className={cx(
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
+          'transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]',
+          'motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5',
+          'motion-reduce:transition-none',
+          tokens.circle,
+        )}
+      >
+        <ArrowIcon />
+      </span>
+    </AppLink>
   );
 }
 
 function NewsCard({ item }: { item: PublicNewsSummary }) {
   const date = formatDate(item.publishedAt);
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-sm">
-      <Media image={item.cover} altFallback={item.title} className="h-44 w-full" />
-      <div className="flex flex-1 flex-col gap-2 p-5">
-        {date ? <p className="text-sm text-ink-muted">{date}</p> : null}
-        <h3 className="text-xl leading-tight font-bold text-ink">
-          <AppLink to={`/noticias/${item.slug}`} className="hover:text-accent-strong">
-            {item.title}
-          </AppLink>
-        </h3>
-        {item.summary ? (
-          <div
-            className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
-            dangerouslySetInnerHTML={{ __html: item.summary }}
-          />
-        ) : null}
+    <article className={cx('card-frame group/card h-full', CARD_HOVER)}>
+      <div className="card-frame-inner flex flex-col">
+        <Media
+          image={item.cover}
+          altFallback={item.title}
+          className={cx('aspect-[16/10] w-full', CARD_MEDIA_ZOOM)}
+        />
+        <div className="flex flex-1 flex-col gap-3 p-6 sm:p-7">
+          {date ? <p className="text-sm text-ink-muted">{date}</p> : null}
+          <h3 className="text-xl leading-tight font-bold text-balance text-ink sm:text-2xl">
+            <AppLink to={`/noticias/${item.slug}`} className="hover:text-accent-strong">
+              {item.title}
+            </AppLink>
+          </h3>
+          {item.summary ? (
+            <div
+              className="richtext richtext-inline max-w-[62ch] text-base leading-relaxed text-ink-muted"
+              dangerouslySetInnerHTML={{ __html: item.summary }}
+            />
+          ) : null}
+        </div>
       </div>
     </article>
   );
@@ -95,24 +203,30 @@ function NewsCard({ item }: { item: PublicNewsSummary }) {
 function ActivityCard({ item }: { item: PublicActivitySummary }) {
   const date = formatDateRange(item.startsAt, item.endsAt);
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-sm">
-      <Media image={item.cover} altFallback={item.title} className="h-44 w-full" />
-      <div className="flex flex-1 flex-col gap-2 p-5">
-        {date ? <p className="text-sm font-semibold text-accent-strong">{date}</p> : null}
-        <h3 className="text-xl leading-tight font-bold text-ink">
-          <AppLink to={`/actividades/${item.slug}`} className="hover:text-accent-strong">
-            {item.title}
-          </AppLink>
-        </h3>
-        {item.locationText ? (
-          <p className="text-sm text-ink-muted">{item.locationText}</p>
-        ) : null}
-        {item.summary ? (
-          <div
-            className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
-            dangerouslySetInnerHTML={{ __html: item.summary }}
-          />
-        ) : null}
+    <article className={cx('card-frame group/card h-full', CARD_HOVER)}>
+      <div className="card-frame-inner flex flex-col">
+        <Media
+          image={item.cover}
+          altFallback={item.title}
+          className={cx('aspect-[16/10] w-full', CARD_MEDIA_ZOOM)}
+        />
+        <div className="flex flex-1 flex-col gap-3 p-6 sm:p-7">
+          {date ? <p className="text-sm font-semibold text-accent-strong">{date}</p> : null}
+          <h3 className="text-xl leading-tight font-bold text-balance text-ink sm:text-2xl">
+            <AppLink to={`/actividades/${item.slug}`} className="hover:text-accent-strong">
+              {item.title}
+            </AppLink>
+          </h3>
+          {item.locationText ? (
+            <p className="text-sm text-ink-muted">{item.locationText}</p>
+          ) : null}
+          {item.summary ? (
+            <div
+              className="richtext richtext-inline max-w-[62ch] text-base leading-relaxed text-ink-muted"
+              dangerouslySetInnerHTML={{ __html: item.summary }}
+            />
+          ) : null}
+        </div>
       </div>
     </article>
   );
@@ -120,26 +234,29 @@ function ActivityCard({ item }: { item: PublicActivitySummary }) {
 
 function GalleryCard({ item }: { item: PublicGallerySummary }) {
   return (
-    <AppLink
-      to={`/galerias/${item.slug}`}
-      className="group flex flex-col overflow-hidden rounded-[var(--radius-card)] border border-line bg-surface shadow-sm transition-colors duration-200 ease-out hover:border-accent"
-    >
-      <Media image={item.cover} altFallback={item.title} className="h-48 w-full" />
-      <div className="flex flex-1 flex-col gap-1 p-5">
-        <h3 className="text-xl leading-tight font-bold text-ink group-hover:text-accent-strong">
-          {item.title}
-        </h3>
-        {item.description ? (
-          <div
-            className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
-            dangerouslySetInnerHTML={{ __html: item.description }}
-          />
-        ) : null}
-        <p className="mt-1 text-sm text-ink-muted">
-          {item.photoCount === 1 ? '1 fotografía' : `${item.photoCount} fotografías`}
-        </p>
-      </div>
-    </AppLink>
+    <article className={cx('card-frame group/card h-full', CARD_HOVER)}>
+      <AppLink to={`/galerias/${item.slug}`} className="card-frame-inner flex h-full flex-col">
+        <Media
+          image={item.cover}
+          altFallback={item.title}
+          className={cx('aspect-[4/3] w-full', CARD_MEDIA_ZOOM)}
+        />
+        <div className="flex flex-1 flex-col gap-2 p-6 sm:p-7">
+          <h3 className="text-xl leading-tight font-bold text-balance text-ink group-hover/card:text-accent-strong sm:text-2xl">
+            {item.title}
+          </h3>
+          {item.description ? (
+            <div
+              className="richtext richtext-inline max-w-[62ch] text-base leading-relaxed text-ink-muted"
+              dangerouslySetInnerHTML={{ __html: item.description }}
+            />
+          ) : null}
+          <p className="mt-1 text-sm text-ink-muted">
+            {item.photoCount === 1 ? '1 fotografía' : `${item.photoCount} fotografías`}
+          </p>
+        </div>
+      </AppLink>
+    </article>
   );
 }
 
@@ -147,10 +264,10 @@ function GalleryCard({ item }: { item: PublicGallerySummary }) {
 export function EmptySite() {
   return (
     <Container className="mx-auto flex w-full max-w-3xl flex-col items-start gap-5 px-4 py-24 sm:px-6 lg:px-8">
-      <h1 className="text-4xl leading-tight font-bold text-balance text-ink sm:text-5xl">
+      <h1 className="text-4xl leading-[1.05] font-bold text-balance text-ink sm:text-5xl">
         Sitio en preparación
       </h1>
-      <p className="max-w-[60ch] text-lg text-pretty text-ink-muted">
+      <p className="max-w-[62ch] text-lg leading-relaxed text-pretty text-ink-muted">
         Esta institución todavía no ha publicado su información. Cuando el equipo
         complete la configuración institucional y publique contenido, aparecerá aquí.
       </p>
@@ -181,6 +298,7 @@ const HERO_RICHTEXT_ON_COVER =
 
 function HeroSection() {
   const { site } = useSite();
+  const { ref, revealed } = useReveal<HTMLDivElement>();
   if (!site) return null;
   const { institution } = site;
   const name = institution.name.trim() || 'Cuerpo de Bomberos';
@@ -191,8 +309,10 @@ function HeroSection() {
     <section
       id="inicio"
       className={cx(
-        'scroll-mt-6 border-b border-line py-16 sm:py-24',
-        cover ? 'relative isolate overflow-hidden' : 'bg-muted',
+        'scroll-mt-32 border-b border-line',
+        cover
+          ? 'relative isolate flex min-h-[68svh] items-center overflow-hidden py-24 sm:min-h-[76svh] sm:py-32'
+          : 'bg-muted py-20 sm:py-28 lg:py-32',
       )}
     >
       {cover ? (
@@ -203,18 +323,26 @@ function HeroSection() {
             aria-hidden="true"
             className="absolute inset-0 -z-10 h-full w-full object-cover"
           />
-          <div aria-hidden="true" className="absolute inset-0 -z-10 bg-brand-secondary/80" />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 -z-10 bg-linear-to-b from-brand-secondary/75 via-brand-secondary/80 to-brand-secondary/95"
+          />
         </>
       ) : null}
 
       <Container>
-        <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex max-w-[65ch] flex-col gap-5">
+        <div
+          ref={ref}
+          className={cx(
+            revealClass(revealed),
+            'flex flex-col gap-12 lg:flex-row lg:items-center lg:justify-between',
+          )}
+        >
+          <div className="flex max-w-[62ch] flex-col gap-6">
             <h1
               className={cx(
-                'text-4xl leading-tight font-bold text-balance',
+                'text-5xl leading-[1.02] font-bold text-balance sm:text-6xl lg:text-7xl',
                 cover ? 'text-white' : 'text-ink',
-                'sm:text-5xl',
               )}
             >
               {name}
@@ -222,7 +350,7 @@ function HeroSection() {
             {institution.number ? (
               <p
                 className={cx(
-                  'inline-flex w-fit items-center rounded-md border px-2.5 py-1 text-sm font-semibold',
+                  'inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold',
                   cover
                     ? 'border-white/40 bg-white/10 text-white'
                     : 'border-brand bg-brand/5 text-brand',
@@ -234,38 +362,25 @@ function HeroSection() {
             {toPlainText(institution.description, 1) ? (
               <div
                 className={cx(
-                  'richtext text-lg',
+                  'richtext max-w-[62ch] text-lg leading-relaxed sm:text-xl',
                   cover ? HERO_RICHTEXT_ON_COVER : 'text-ink-muted',
                 )}
                 dangerouslySetInnerHTML={{ __html: institution.description }}
               />
             ) : null}
-            <div className="flex flex-wrap gap-3">
-              <AppLink
-                to="/#contact"
-                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-accent px-6 py-3 text-base font-semibold text-white transition-colors duration-200 ease-out hover:bg-accent-strong"
-              >
-                Contacto
-              </AppLink>
-              <AppLink
-                to="/noticias"
-                className={cx(
-                  'inline-flex min-h-11 items-center justify-center rounded-lg border-2 px-6 py-3 text-base font-semibold transition-colors duration-200 ease-out',
-                  cover
-                    ? 'border-white text-white hover:bg-white/10'
-                    : 'border-brand text-brand hover:bg-brand/5',
-                )}
-              >
+            <div className="flex flex-wrap gap-3 pt-1">
+              <PillLink to="/#contact">Contacto</PillLink>
+              <PillLink to="/noticias" variant={cover ? 'onCover' : 'outline'}>
                 Noticias
-              </AppLink>
+              </PillLink>
             </div>
             {specialties.length > 0 ? (
-              <ul className="flex flex-wrap gap-2 pt-2">
+              <ul className="flex flex-wrap gap-2 pt-1">
                 {specialties.slice(0, 6).map((specialty) => (
                   <li
                     key={specialty}
                     className={cx(
-                      'rounded-md border px-3 py-1 text-sm font-semibold',
+                      'rounded-full border px-3.5 py-1.5 text-sm font-semibold',
                       cover
                         ? 'border-white/30 bg-white/10 text-white'
                         : 'border-line bg-surface text-ink',
@@ -286,15 +401,15 @@ function HeroSection() {
                 width={institution.shield.width ?? undefined}
                 height={institution.shield.height ?? undefined}
                 className={cx(
-                  'h-40 w-40 object-contain sm:h-52 sm:w-52',
-                  cover ? 'rounded-full bg-white/5 p-2' : undefined,
+                  'h-44 w-44 object-contain sm:h-60 sm:w-60',
+                  cover ? 'drop-shadow-lg' : undefined,
                 )}
               />
             ) : (
               <span
                 aria-hidden="true"
                 className={cx(
-                  'flex h-40 w-40 items-center justify-center rounded-[var(--radius-card)] border text-5xl font-bold sm:h-52 sm:w-52',
+                  'flex h-44 w-44 items-center justify-center rounded-[var(--radius-card)] border text-6xl font-bold sm:h-60 sm:w-60',
                   cover
                     ? 'border-white/40 bg-white/10 text-white'
                     : 'border-line bg-surface text-brand',
@@ -320,11 +435,11 @@ function AboutSection() {
   if (paragraphs.length === 0) return null;
   return (
     <SectionShell id="about" title="La compañía">
-      <div className="flex max-w-[68ch] flex-col gap-4">
+      <div className="flex max-w-[70ch] flex-col gap-6">
         {paragraphs.map((html, index) => (
           <div
             key={index}
-            className="richtext text-lg text-ink-muted"
+            className="richtext text-lg leading-relaxed text-ink-muted sm:text-xl"
             dangerouslySetInnerHTML={{ __html: html }}
           />
         ))}
@@ -341,7 +456,7 @@ function HistorySection() {
   return (
     <SectionShell id="history" title="Nuestra historia" tone="muted">
       <div
-        className="richtext max-w-[68ch] text-lg text-ink-muted"
+        className="richtext max-w-[70ch] text-lg leading-relaxed text-ink-muted sm:text-xl"
         dangerouslySetInnerHTML={{ __html: institution.history }}
       />
     </SectionShell>
@@ -362,15 +477,14 @@ function MissionSection() {
     <SectionShell id="mission" title="Misión, visión y valores">
       <div className="grid gap-6 md:grid-cols-3">
         {blocks.map((block) => (
-          <div
-            key={block.title}
-            className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-line bg-muted p-6 shadow-sm"
-          >
-            <h3 className="text-xl font-bold text-ink">{block.title}</h3>
-            <div
-              className="richtext text-base text-ink-muted"
-              dangerouslySetInnerHTML={{ __html: block.text }}
-            />
+          <div key={block.title} className="card-frame h-full">
+            <div className="card-frame-inner flex flex-col gap-3 p-7 sm:p-8">
+              <h3 className="text-2xl leading-tight font-bold text-ink">{block.title}</h3>
+              <div
+                className="richtext text-base leading-relaxed text-ink-muted"
+                dangerouslySetInnerHTML={{ __html: block.text }}
+              />
+            </div>
           </div>
         ))}
       </div>
@@ -387,11 +501,10 @@ function SpecialtiesSection() {
     <SectionShell id="specialties" title="Especialidades" tone="muted">
       <ul className="flex flex-wrap gap-3">
         {specialties.map((specialty) => (
-          <li
-            key={specialty}
-            className="rounded-md border border-line bg-surface px-4 py-2 text-base font-semibold text-ink"
-          >
-            {specialty}
+          <li key={specialty} className="rounded-full border border-line bg-muted p-1">
+            <span className="block rounded-full border border-line bg-surface px-5 py-2.5 text-base font-semibold text-ink">
+              {specialty}
+            </span>
           </li>
         ))}
       </ul>
@@ -406,19 +519,16 @@ function GallerySection() {
   if (galleries.length === 0) return null;
   return (
     <SectionShell id="gallery" title="Galería">
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-10">
         <div className="grid gap-6 md:grid-cols-3">
           {galleries.map((gallery) => (
             <GalleryCard key={gallery.slug} item={gallery} />
           ))}
         </div>
         <div>
-          <AppLink
-            to="/galerias"
-            className="text-base font-semibold text-accent-strong underline underline-offset-2"
-          >
+          <PillLink to="/galerias" variant="outline">
             Ver todas las galerías
-          </AppLink>
+          </PillLink>
         </div>
       </div>
     </SectionShell>
@@ -431,19 +541,16 @@ function NewsSection() {
   if (site.news.length === 0) return null;
   return (
     <SectionShell id="news" title="Noticias" tone="muted">
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-10">
         <div className="grid gap-6 md:grid-cols-3">
           {site.news.map((item) => (
             <NewsCard key={item.slug} item={item} />
           ))}
         </div>
         <div>
-          <AppLink
-            to="/noticias"
-            className="text-base font-semibold text-accent-strong underline underline-offset-2"
-          >
+          <PillLink to="/noticias" variant="outline">
             Ver todas las noticias
-          </AppLink>
+          </PillLink>
         </div>
       </div>
     </SectionShell>
@@ -456,19 +563,16 @@ function ActivitiesSection() {
   if (site.activities.length === 0) return null;
   return (
     <SectionShell id="activities" title="Actividades">
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-10">
         <div className="grid gap-6 md:grid-cols-3">
           {site.activities.map((item) => (
             <ActivityCard key={item.slug} item={item} />
           ))}
         </div>
         <div>
-          <AppLink
-            to="/actividades"
-            className="text-base font-semibold text-accent-strong underline underline-offset-2"
-          >
+          <PillLink to="/actividades" variant="outline">
             Ver todas las actividades
-          </AppLink>
+          </PillLink>
         </div>
       </div>
     </SectionShell>
@@ -490,10 +594,10 @@ function ContactSection() {
 
   return (
     <SectionShell id="contact" title="Contacto" tone="muted">
-      <div className="grid gap-10 md:grid-cols-2">
-        <div className="flex flex-col gap-4">
+      <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
+        <div className="flex flex-col gap-8">
           {location.length > 0 ? (
-            <address className="text-lg not-italic text-ink">
+            <address className="text-lg leading-relaxed not-italic text-ink sm:text-xl">
               {location.map((line) => (
                 <span key={line} className="block">
                   {line}
@@ -502,15 +606,13 @@ function ContactSection() {
             </address>
           ) : null}
           {institution.phones.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold text-ink-muted">
-                Teléfonos
-              </p>
-              <ul className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold text-ink-muted">Teléfonos</p>
+              <ul className="flex flex-col gap-1.5">
                 {institution.phones.map((phone) => (
                   <li key={phone}>
                     <a
-                      className="text-lg text-accent-strong underline-offset-2 hover:underline"
+                      className="text-lg text-accent-strong underline-offset-4 hover:underline"
                       href={`tel:${phone}`}
                     >
                       {phone}
@@ -521,15 +623,13 @@ function ContactSection() {
             </div>
           ) : null}
           {institution.emails.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold text-ink-muted">
-                Correos
-              </p>
-              <ul className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold text-ink-muted">Correos</p>
+              <ul className="flex flex-col gap-1.5">
                 {institution.emails.map((email) => (
                   <li key={email}>
                     <a
-                      className="text-lg text-accent-strong underline-offset-2 hover:underline"
+                      className="text-lg text-accent-strong underline-offset-4 hover:underline"
                       href={`mailto:${email}`}
                     >
                       {email}
@@ -540,15 +640,13 @@ function ContactSection() {
             </div>
           ) : null}
           {institution.socials.length > 0 ? (
-            <div className="flex flex-col gap-1">
-              <p className="text-sm font-semibold text-ink-muted">
-                Redes sociales
-              </p>
-              <ul className="flex flex-wrap gap-x-5 gap-y-1">
+            <div className="flex flex-col gap-2">
+              <p className="text-sm font-semibold text-ink-muted">Redes sociales</p>
+              <ul className="flex flex-wrap gap-x-5 gap-y-1.5">
                 {institution.socials.map((social) => (
                   <li key={`${social.network}-${social.url}`}>
                     <a
-                      className="text-lg font-semibold text-accent-strong underline-offset-2 hover:underline"
+                      className="text-lg font-semibold text-accent-strong underline-offset-4 hover:underline"
                       href={social.url}
                       rel="noopener noreferrer"
                       target="_blank"
@@ -562,26 +660,26 @@ function ContactSection() {
           ) : null}
         </div>
 
-        <div className="flex flex-col justify-start gap-3 rounded-[var(--radius-card)] border border-line bg-surface p-6 shadow-sm">
-          <p className="text-sm font-semibold text-ink-muted">
-            Emergencias
-          </p>
-          {institution.emergencyNumber ? (
-            <a
-              className="text-5xl font-bold text-brand underline-offset-4 hover:underline"
-              href={`tel:${institution.emergencyNumber}`}
-            >
-              {institution.emergencyNumber}
-            </a>
-          ) : null}
-          <p className="text-base text-ink-muted">
-            Ante una emergencia, llame al número de Bomberos de su localidad.
-          </p>
-          {!hasDetails ? (
-            <p className="text-base text-ink-muted">
-              La institución aún no ha registrado datos de contacto adicionales.
+        <div className="card-frame h-full">
+          <div className="card-frame-inner flex h-full flex-col justify-center gap-4 p-8 sm:p-10">
+            <p className="text-sm font-semibold text-ink-muted">Emergencias</p>
+            {institution.emergencyNumber ? (
+              <a
+                className="text-6xl leading-none font-bold text-brand underline-offset-4 hover:underline sm:text-7xl"
+                href={`tel:${institution.emergencyNumber}`}
+              >
+                {institution.emergencyNumber}
+              </a>
+            ) : null}
+            <p className="max-w-[46ch] text-base leading-relaxed text-ink-muted">
+              Ante una emergencia, llame al número de Bomberos de su localidad.
             </p>
-          ) : null}
+            {!hasDetails ? (
+              <p className="text-base leading-relaxed text-ink-muted">
+                La institución aún no ha registrado datos de contacto adicionales.
+              </p>
+            ) : null}
+          </div>
         </div>
       </div>
     </SectionShell>

@@ -21,6 +21,7 @@ import {
   PersonsPage,
   ReportsPage,
   SettingsPage,
+  UsersPage,
 } from './admin';
 
 /** Enlace para saltar al contenido principal con el teclado. */
@@ -118,6 +119,8 @@ function AdminPanel() {
     content = <ContentAdminPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/informes') {
     content = <ReportsPage />;
+  } else if (currentPath === '/admin/usuarios') {
+    content = <UsersPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/ajustes') {
     content = <SettingsPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/inventario/catalogo') {
@@ -128,7 +131,12 @@ function AdminPanel() {
 
   return (
     <AdminLayout
-      user={{ username: user.username, displayName: user.displayName, roles: user.roles }}
+      user={{
+        username: user.username,
+        displayName: user.displayName,
+        roles: user.roles,
+        permissions: user.permissions,
+      }}
       csrfToken={csrfToken}
       onLogout={handleLogout}
       currentPath={currentPath}

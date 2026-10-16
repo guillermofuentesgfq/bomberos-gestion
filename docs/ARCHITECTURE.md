@@ -89,6 +89,18 @@ por el Worker, que comprueba sesión y permiso. Solo los objetos marcados
 explícitamente como públicos (`storage_objects.is_public = 1`) se sirven sin
 autenticación, y solo para el sitio institucional.
 
+La **foto de una persona** es un dato personal y siempre es privada; la foto de
+un material, también. Se sirven con sesión, nunca desde el sitio público.
+
+**Límite conocido del modelo:** la comprobación de acceso a un objeto privado es
+por **permiso general**, no por objeto. Cualquier sesión con `inventory.read` o
+`site.read` puede descargar cualquier objeto privado conociendo su
+identificador, y los identificadores son correlativos. Hoy es aceptable porque
+todo el personal con acceso al panel es de la misma institución, pero **no** lo
+sería si se añadiera un rol externo o de solo consulta pública. Cerrarlo exige
+etiquetar cada objeto con su ámbito (`storage_objects.scope`, por ejemplo
+`inventory` / `person` / `site`) y comprobar el permiso correspondiente.
+
 ### Texto enriquecido y XSS
 
 El contenido del sitio (cuerpos y resúmenes de páginas, noticias, actividades y

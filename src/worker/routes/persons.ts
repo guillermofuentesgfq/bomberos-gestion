@@ -57,6 +57,8 @@ const personBodySchema = z.object({
   emergencyName: z.string().trim().max(160).nullable().optional(),
   emergencyPhone: z.string().trim().max(40).nullable().optional(),
   history: richNotes.nullable().optional(),
+  /** Foto de la persona: objeto privado, es un dato personal. */
+  photoObjectId: z.number().int().positive().nullable().optional(),
   isActive: z.boolean().optional(),
 });
 
@@ -174,6 +176,7 @@ personRoutes.post('/', requireAuth, requireCsrf, requirePermission('persons.writ
     emergencyName: body.emergencyName ?? null,
     emergencyPhone: body.emergencyPhone ?? null,
     history: body.history ?? null,
+    photoObjectId: body.photoObjectId ?? null,
     isActive: body.isActive,
   });
   return ok(c, { id }, 201);
@@ -225,6 +228,7 @@ personRoutes.get('/:id/ficha', requireAuth, requirePermission('persons.read'), a
       emergencyName: person.emergency_name,
       emergencyPhone: person.emergency_phone,
       history: person.history,
+      photoObjectId: person.photo_object_id,
       isActive: person.is_active === 1,
     },
     positions: positions.map((position) => ({
@@ -324,6 +328,7 @@ personRoutes.put('/:id', requireAuth, requireCsrf, requirePermission('persons.wr
     emergencyName: body.emergencyName ?? null,
     emergencyPhone: body.emergencyPhone ?? null,
     history: body.history ?? null,
+    photoObjectId: body.photoObjectId ?? null,
     isActive: body.isActive,
   });
   return ok(c, { updated: true });

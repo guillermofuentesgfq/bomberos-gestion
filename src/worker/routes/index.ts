@@ -5,6 +5,7 @@ import { attachContext } from '../security/middleware';
 import { authRoutes } from './auth';
 import { inventoryRoutes } from './inventory';
 import { personRoutes } from './persons';
+import { usersRoutes } from './users';
 import { filesRoutes } from './files';
 import { reportsRoutes } from './reports';
 import { publicRoutes } from './public';
@@ -37,6 +38,7 @@ api.use('*', attachContext);
 api.route('/auth', authRoutes);
 api.route('/inventory', inventoryRoutes);
 api.route('/persons', personRoutes);
+api.route('/users', usersRoutes);
 api.route('/files', filesRoutes);
 api.route('/reports', reportsRoutes);
 // Sitio público (sin autenticación) y administración del contenido.

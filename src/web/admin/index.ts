@@ -12,6 +12,7 @@ export { ReportsPage } from './ReportsPage';
 export { InventoryPrintPage } from './InventoryPrintPage';
 export { PersonsCatalogPage } from './PersonsCatalogPage';
 export { PersonFichaPage } from './PersonFichaPage';
+export { UsersPage } from './UsersPage';
 export { PersonsPage, personDetailPath } from './PersonsPage';
 export { PersonDetailPage } from './PersonDetailPage';
 export { MovementsPage } from './MovementsPage';

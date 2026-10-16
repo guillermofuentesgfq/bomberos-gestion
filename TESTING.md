@@ -23,8 +23,8 @@ prueba, conservando las tablas de referencia.
 ## Estado actual (real)
 
 ```
-Test Files  12 passed (12)
-     Tests  140 passed (140)
+Test Files  13 passed (13)
+     Tests  151 passed (151)
 ```
 
 | Archivo | Qué cubre |
@@ -41,6 +41,7 @@ Test Files  12 passed (12)
 | `tests/inventory.test.ts` | integridad de existencias, entregas, devoluciones parciales, idempotencia, concurrencia, inyección SQL, **edición de materiales, foto privada, catálogo y actas imprimibles de entrega y baja** |
 | `tests/files.test.ts` | privacidad de archivos y rechazo de contenido activo |
 | `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo (contenido y textos institucionales)** |
+| `tests/users.test.ts` | alta, edición, roles, contraseña temporal, desbloqueo y archivado de usuarios; **protecciones para no quedarse sin administrador** y control de permisos |
 
 ## Cobertura de los casos exigidos
 
@@ -68,6 +69,9 @@ Test Files  12 passed (12)
 | Edición del catálogo | ✅ cubierto (renombrar ubicaciones con su descripción, categorías y tipos —asociando la categoría—, `409` con nombre repetido y `404` si la entrada no existe) |
 | Catálogo de personas | ✅ cubierto (crear, editar, duplicar y archivar cargos y calidades, con `409` y `404`) |
 | Ficha imprimible del integrante | ✅ cubierto (datos, calidad, cargos con el nombre del cargo resuelto, material pendiente con su condición, notas saneadas y membrete institucional; `404` si la persona no existe) |
+| Foto del personal | ✅ cubierto (se sube como objeto privado y aparece en el detalle y en la ficha; `null` la quita) |
+| Gestión de usuarios | ✅ cubierto (alta con contraseña temporal, listado con roles y sus permisos, cambio de roles y estado, desbloqueo y archivado; restablecer la contraseña **cierra las sesiones** y vuelve a exigir el cambio) |
+| Protección contra el bloqueo total | ✅ cubierto (no se puede desactivar ni quitar el rol de administrador a la propia cuenta, ni dejar la instalación sin ningún administrador activo) |
 | Actas imprimibles | ✅ cubierto (el acta de entrega documenta la entrega **completa** aunque haya devoluciones parciales, con el membrete de la institución; la de baja lleva motivo, quién autoriza y la condición anterior; `404` si no existe) |
 | Icono del sitio | ✅ cubierto (se sirve desde el escudo configurado, `404` si no hay ninguno y `404` si el escudo es privado) |
 | Foto de portada | ✅ cubierto (se publica solo si el objeto es público; una portada privada no se expone) |

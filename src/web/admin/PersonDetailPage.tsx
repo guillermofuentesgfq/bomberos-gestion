@@ -12,13 +12,15 @@ import { Alert } from '../components/Alert';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { TextField } from '../components/TextField';
 import { formatDate } from '../lib/format';
 import { toPlainText } from '../lib/richtext';
 import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
-import { SelectField, StatusMessage, TextAreaField } from './adminFields';
+import { CheckboxField, SelectField, StatusMessage, TextAreaField } from './adminFields';
 import type { SelectOption } from './adminFields';
+import { ImageUploader } from './ImageUploader';
 import { useForm } from './useForm';
 import {
   createAssignment,
@@ -29,6 +31,7 @@ import {
   fetchMaterials,
   fetchPersonDetail,
   fetchPersonsCatalog,
+  updatePerson,
 } from './adminApi';
 import type {
   AssignmentLineInput,
@@ -37,8 +40,10 @@ import type {
   MaterialSummary,
   PersonAssignmentLine,
   PersonDetail,
+  PersonRow,
   PersonsCatalog,
   ReturnLineInput,
+  UpdatePersonInput,
 } from './adminApi';
 
 /** Convierte un valor de input a entero, o `null` si está vacío/no es número. */
@@ -609,6 +614,225 @@ function AssignForm({
 }
 
 // ---------------------------------------------------------------------------
+// Edición de los datos de la persona
+// ---------------------------------------------------------------------------
+
+interface PersonEditValues {
+  fullName: string;
+  rut: string;
+  qualityId: string;
+  phone: string;
+  email: string;
+  address: string;
+  birthDate: string;
+  joinDate: string;
+  registryNo: string;
+  emergencyName: string;
+  emergencyPhone: string;
+  history: string;
+  isActive: boolean;
+  photoObjectId: number | null;
+}
+
+/** Valores iniciales del formulario, derivados del detalle vigente. */
+function personEditValues(person: PersonRow): PersonEditValues {
+  return {
+    fullName: person.full_name,
+    rut: person.rut ?? '',
+    qualityId: person.quality_id !== null ? String(person.quality_id) : '',
+    phone: person.phone ?? '',
+    email: person.email ?? '',
+    address: person.address ?? '',
+    birthDate: person.birth_date ?? '',
+    joinDate: person.join_date ?? '',
+    registryNo: person.registry_no ?? '',
+    emergencyName: person.emergency_name ?? '',
+    emergencyPhone: person.emergency_phone ?? '',
+    history: person.history ?? '',
+    isActive: person.is_active === 1,
+    photoObjectId: person.photo_object_id,
+  };
+}
+
+function PersonEditForm({
+  csrfToken,
+  person,
+  catalog,
+  onSaved,
+  onCancel,
+}: {
+  csrfToken: string;
+  person: PersonRow;
+  catalog: PersonsCatalog;
+  onSaved: (message: string) => void;
+  onCancel: () => void;
+}) {
+  const form = useForm<PersonEditValues>(personEditValues(person));
+  const qualities = catalog.qualities.map((quality) => ({
+    value: String(quality.id),
+    label: quality.name,
+  }));
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (form.submitting) return;
+
+    const fullName = form.values.fullName.trim();
+    if (!fullName) {
+      form.setFieldErrors({ fullName: 'Ingresa el nombre completo.' });
+      return;
+    }
+
+    // `PUT /persons/:id` reemplaza el registro entero: se parte del detalle
+    // vigente (los valores iniciales del formulario) y se envían todos los
+    // campos, limpiando con `null` los que queden vacíos.
+    const input: UpdatePersonInput = {
+      fullName,
+      rut: form.values.rut.trim() || null,
+      qualityId: form.values.qualityId ? Number(form.values.qualityId) : null,
+      phone: form.values.phone.trim() || null,
+      email: form.values.email.trim() || null,
+      address: form.values.address.trim() || null,
+      birthDate: form.values.birthDate.trim() || null,
+      joinDate: form.values.joinDate.trim() || null,
+      registryNo: form.values.registryNo.trim() || null,
+      emergencyName: form.values.emergencyName.trim() || null,
+      emergencyPhone: form.values.emergencyPhone.trim() || null,
+      history: toPlainText(form.values.history, 1) ? form.values.history : null,
+      isActive: form.values.isActive,
+      photoObjectId: form.values.photoObjectId,
+    };
+
+    form.setSubmitting(true);
+    form.setFieldErrors({});
+    try {
+      await updatePerson(person.id, input, csrfToken);
+      onSaved(`Datos de «${fullName}» actualizados correctamente.`);
+    } catch (error) {
+      form.applyError(error);
+    } finally {
+      form.setSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+      <h3 className="text-lg font-bold text-ink">Editar datos</h3>
+
+      {form.generalError ? (
+        <div ref={form.errorRef} tabIndex={-1}>
+          <Alert tone="error" title="No se pudieron guardar los cambios">
+            {form.generalError}
+          </Alert>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField
+          label="Nombre completo"
+          required
+          value={form.values.fullName}
+          error={form.fieldErrors.fullName}
+          onChange={(event) => form.patch({ fullName: event.target.value })}
+        />
+        <TextField
+          label="RUT"
+          hint="Opcional."
+          value={form.values.rut}
+          error={form.fieldErrors.rut}
+          onChange={(event) => form.patch({ rut: event.target.value })}
+        />
+        <SelectField
+          label="Calidad"
+          options={qualities}
+          placeholder="Sin calidad"
+          value={form.values.qualityId}
+          onChange={(event) => form.patch({ qualityId: event.target.value })}
+        />
+        <TextField
+          label="Teléfono"
+          type="tel"
+          value={form.values.phone}
+          onChange={(event) => form.patch({ phone: event.target.value })}
+        />
+        <TextField
+          label="Correo electrónico"
+          type="email"
+          value={form.values.email}
+          error={form.fieldErrors.email}
+          onChange={(event) => form.patch({ email: event.target.value })}
+        />
+        <TextField
+          label="Dirección"
+          value={form.values.address}
+          onChange={(event) => form.patch({ address: event.target.value })}
+        />
+        <TextField
+          label="Fecha de nacimiento"
+          type="date"
+          value={form.values.birthDate}
+          onChange={(event) => form.patch({ birthDate: event.target.value })}
+        />
+        <TextField
+          label="Fecha de ingreso"
+          type="date"
+          value={form.values.joinDate}
+          onChange={(event) => form.patch({ joinDate: event.target.value })}
+        />
+        <TextField
+          label="N.º de registro"
+          hint="Opcional."
+          value={form.values.registryNo}
+          onChange={(event) => form.patch({ registryNo: event.target.value })}
+        />
+        <TextField
+          label="Contacto de emergencia"
+          value={form.values.emergencyName}
+          onChange={(event) => form.patch({ emergencyName: event.target.value })}
+        />
+        <TextField
+          label="Teléfono de emergencia"
+          type="tel"
+          value={form.values.emergencyPhone}
+          onChange={(event) => form.patch({ emergencyPhone: event.target.value })}
+        />
+      </div>
+
+      <RichTextEditor
+        label="Notas"
+        hint="Opcional. Antecedentes relevantes de la persona."
+        value={form.values.history}
+        onChange={(html) => form.patch({ history: toPlainText(html, 1) ? html : '' })}
+      />
+
+      <CheckboxField
+        label="Persona activa"
+        checked={form.values.isActive}
+        onChange={(event) => form.patch({ isActive: event.target.checked })}
+      />
+
+      <ImageUploader
+        csrfToken={csrfToken}
+        label="Foto"
+        hint="Dato personal: se guarda de forma privada y solo se ve con sesión iniciada (aquí y en la ficha imprimible)."
+        value={form.values.photoObjectId}
+        onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+        isPublic={false}
+      />
+
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" loading={form.submitting}>
+          {form.submitting ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Página
 // ---------------------------------------------------------------------------
 
@@ -622,6 +846,7 @@ export function PersonDetailPage({
   const [reloadToken, setReloadToken] = useState(0);
   const [showReturn, setShowReturn] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
 
@@ -644,6 +869,15 @@ export function PersonDetailPage({
       setNotice(message);
       setShowReturn(false);
       setShowAssign(false);
+      reload();
+    },
+    [reload],
+  );
+
+  const handlePersonSaved = useCallback(
+    (message: string) => {
+      setNotice(message);
+      setShowEdit(false);
       reload();
     },
     [reload],
@@ -705,60 +939,78 @@ export function PersonDetailPage({
       {detailState.status === 'ready' && detailState.data ? (
         <>
           <Card>
-            <h2 className="mb-4 text-xl font-bold text-ink">Datos personales</h2>
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">RUT</dt>
-                <dd className="text-base text-ink">{detailState.data.person.rut ?? '—'}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Calidad</dt>
-                <dd className="text-base text-ink">
-                  {detailState.data.person.quality_id !== null
-                    ? (personsCatalog?.qualities.find(
-                        (quality) => quality.id === detailState.data?.person.quality_id,
-                      )?.name ?? `Calidad #${detailState.data.person.quality_id}`)
-                    : '—'}
-                </dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Estado</dt>
-                <dd className="text-base text-ink">
-                  {detailState.data.person.is_active === 1 ? 'Activa' : 'Inactiva'}
-                </dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Teléfono</dt>
-                <dd className="text-base text-ink">{detailState.data.person.phone ?? '—'}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Correo electrónico</dt>
-                <dd className="text-base text-ink">{detailState.data.person.email ?? '—'}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Dirección</dt>
-                <dd className="text-base text-ink">{detailState.data.person.address ?? '—'}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Ingreso</dt>
-                <dd className="text-base text-ink">
-                  {detailState.data.person.join_date ?? '—'}
-                </dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">N.º de registro</dt>
-                <dd className="text-base text-ink">{detailState.data.person.registry_no ?? '—'}</dd>
-              </div>
-              <div className="flex flex-col">
-                <dt className="text-sm font-semibold text-ink-muted">Contacto de emergencia</dt>
-                <dd className="text-base text-ink">
-                  {detailState.data.person.emergency_name ?? '—'}
-                  {detailState.data.person.emergency_phone
-                    ? ` · ${detailState.data.person.emergency_phone}`
-                    : ''}
-                </dd>
-              </div>
-            </dl>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-ink">Datos personales</h2>
+              <Button variant="secondary" onClick={() => setShowEdit((value) => !value)}>
+                {showEdit ? 'Cerrar edición' : 'Editar datos'}
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
+              {detailState.data.person.photo_object_id !== null ? (
+                <img
+                  src={`/api/v1/files/${detailState.data.person.photo_object_id}`}
+                  alt={`Foto de ${detailState.data.person.full_name}`}
+                  className="h-32 w-32 shrink-0 rounded-[var(--radius-card)] border border-line object-cover"
+                />
+              ) : null}
+              <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">RUT</dt>
+                  <dd className="text-base text-ink">{detailState.data.person.rut ?? '—'}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Calidad</dt>
+                  <dd className="text-base text-ink">
+                    {detailState.data.person.quality_id !== null
+                      ? (personsCatalog?.qualities.find(
+                          (quality) => quality.id === detailState.data?.person.quality_id,
+                        )?.name ?? `Calidad #${detailState.data.person.quality_id}`)
+                      : '—'}
+                  </dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Estado</dt>
+                  <dd className="text-base text-ink">
+                    {detailState.data.person.is_active === 1 ? 'Activa' : 'Inactiva'}
+                  </dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Teléfono</dt>
+                  <dd className="text-base text-ink">{detailState.data.person.phone ?? '—'}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Correo electrónico</dt>
+                  <dd className="text-base text-ink">{detailState.data.person.email ?? '—'}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Dirección</dt>
+                  <dd className="text-base text-ink">{detailState.data.person.address ?? '—'}</dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Ingreso</dt>
+                  <dd className="text-base text-ink">
+                    {detailState.data.person.join_date ?? '—'}
+                  </dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">N.º de registro</dt>
+                  <dd className="text-base text-ink">
+                    {detailState.data.person.registry_no ?? '—'}
+                  </dd>
+                </div>
+                <div className="flex flex-col">
+                  <dt className="text-sm font-semibold text-ink-muted">Contacto de emergencia</dt>
+                  <dd className="text-base text-ink">
+                    {detailState.data.person.emergency_name ?? '—'}
+                    {detailState.data.person.emergency_phone
+                      ? ` · ${detailState.data.person.emergency_phone}`
+                      : ''}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
             {toPlainText(detailState.data.person.history, 1) ? (
               <div className="mt-4">
                 <h3 className="text-sm font-semibold text-ink-muted">Historial</h3>
@@ -766,6 +1018,26 @@ export function PersonDetailPage({
                   className="richtext text-base text-ink"
                   dangerouslySetInnerHTML={{ __html: detailState.data.person.history ?? '' }}
                 />
+              </div>
+            ) : null}
+
+            {showEdit ? (
+              <div className="mt-6 border-t border-line pt-6">
+                {personsCatalog ? (
+                  <PersonEditForm
+                    csrfToken={csrfToken}
+                    person={detailState.data.person}
+                    catalog={personsCatalog}
+                    onSaved={handlePersonSaved}
+                    onCancel={() => setShowEdit(false)}
+                  />
+                ) : (
+                  <StatusMessage busy={personsCatalogState.status === 'loading'}>
+                    {personsCatalogState.status === 'loading'
+                      ? 'Cargando el catálogo para editar…'
+                      : 'No se pudo cargar el catálogo para editar.'}
+                  </StatusMessage>
+                )}
               </div>
             ) : null}
           </Card>

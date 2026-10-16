@@ -548,6 +548,7 @@ export interface PersonRow {
   emergency_name: string | null;
   emergency_phone: string | null;
   history: string | null;
+  photo_object_id: number | null;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -696,6 +697,8 @@ export interface PersonFichaData {
   emergencyPhone: string | null;
   /** Notas de la persona, en HTML saneado por el servidor. */
   history: string | null;
+  /** Foto de la persona: objeto **privado**, se sirve con sesión. */
+  photoObjectId: number | null;
   isActive: boolean;
 }
 
@@ -731,6 +734,101 @@ export function fetchPersonFicha(id: number, signal?: AbortSignal): Promise<Pers
   return request<PersonFicha>(`${BASE}/persons/${id}/ficha`, { signal });
 }
 
+// --- Usuarios y roles -------------------------------------------------------
+
+export interface RoleSummary {
+  code: string;
+  name: string;
+  description: string | null;
+  /** Permisos que concede el rol; solo lectura, para saber qué otorga. */
+  permissions: string[];
+}
+
+export interface UserSummary {
+  id: number;
+  username: string;
+  displayName: string | null;
+  email: string | null;
+  isActive: boolean;
+  mustChangePassword: boolean;
+  /** Cuenta bloqueada por intentos fallidos. */
+  locked: boolean;
+  lastLoginAt: string | null;
+  roles: string[];
+}
+
+export interface UsersPayload {
+  users: UserSummary[];
+  roles: RoleSummary[];
+}
+
+/** `GET /users`. */
+export function fetchUsers(signal?: AbortSignal): Promise<UsersPayload> {
+  return request<UsersPayload>(`${BASE}/users`, { signal });
+}
+
+export interface CreateUserInput {
+  username: string;
+  displayName?: string | null | undefined;
+  email?: string | null | undefined;
+  password: string;
+  roles: string[];
+}
+
+export interface UpdateUserInput {
+  displayName?: string | null | undefined;
+  email?: string | null | undefined;
+  isActive?: boolean | undefined;
+  roles?: string[] | undefined;
+}
+
+/** `POST /users`. */
+export function createUser(
+  input: CreateUserInput,
+  csrfToken: string,
+): Promise<{ id: number }> {
+  return request<{ id: number }>(`${BASE}/users`, { method: 'POST', csrfToken, body: input });
+}
+
+/** `PUT /users/:id`. */
+export function updateUser(
+  id: number,
+  input: UpdateUserInput,
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/users/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
+  });
+}
+
+/** `POST /users/:id/password`: contraseña temporal que deberá cambiarse. */
+export function resetUserPassword(
+  id: number,
+  input: { password: string },
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/users/${id}/password`, {
+    method: 'POST',
+    csrfToken,
+    body: input,
+  });
+}
+
+/** `POST /users/:id/unlock`. */
+export function unlockUser(id: number, csrfToken: string): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/users/${id}/unlock`, {
+    method: 'POST',
+    csrfToken,
+  });
+}
+
+/** `DELETE /users/:id`: archiva la cuenta, no la borra. */
+export function archiveUser(id: number, csrfToken: string): Promise<{ archived: true }> {
+  return request<{ archived: true }>(`${BASE}/users/${id}`, { method: 'DELETE', csrfToken });
+}
+
 /** `GET /persons`. */
 export function fetchPersons(q?: string, signal?: AbortSignal): Promise<PersonRow[]> {
   return request<PersonRow[]>(`${BASE}/persons${query({ q })}`, { signal });
@@ -748,6 +846,7 @@ export interface CreatePersonInput {
   emergencyName?: string | null | undefined;
   emergencyPhone?: string | null | undefined;
   history?: string | null | undefined;
+  photoObjectId?: number | null | undefined;
   isActive?: boolean | undefined;
 }
 
@@ -758,6 +857,41 @@ export function createPerson(
 ): Promise<{ id: number }> {
   return request<{ id: number }>(`${BASE}/persons`, {
     method: 'POST',
+    csrfToken,
+    body: input,
+  });
+}
+
+export interface UpdatePersonInput {
+  fullName: string;
+  rut?: string | null | undefined;
+  qualityId?: number | null | undefined;
+  phone?: string | null | undefined;
+  email?: string | null | undefined;
+  address?: string | null | undefined;
+  birthDate?: string | null | undefined;
+  joinDate?: string | null | undefined;
+  registryNo?: string | null | undefined;
+  emergencyName?: string | null | undefined;
+  emergencyPhone?: string | null | undefined;
+  history?: string | null | undefined;
+  photoObjectId?: number | null | undefined;
+  isActive?: boolean | undefined;
+}
+
+/**
+ * `PUT /persons/:id`.
+ *
+ * El servidor **reemplaza** el registro entero, así que hay que enviar todos los
+ * campos: parte del detalle vigente y aplica encima lo que cambia.
+ */
+export function updatePerson(
+  id: number,
+  input: UpdatePersonInput,
+  csrfToken: string,
+): Promise<{ updated: true }> {
+  return request<{ updated: true }>(`${BASE}/persons/${id}`, {
+    method: 'PUT',
     csrfToken,
     body: input,
   });

@@ -187,12 +187,29 @@ export async function registerFailure(
 }
 
 /** Personas con rol asignado (usado por la administración de usuarios). */
-export async function listUsersWithRoles(db: D1Database): Promise<
-  { id: number; username: string; display_name: string | null; is_active: number; roles: string }[]
-> {
-  return all(
+export interface UserAdminRow {
+  id: number;
+  username: string;
+  email: string | null;
+  display_name: string | null;
+  is_active: number;
+  must_change_password: number;
+  locked_until: string | null;
+  last_login_at: string | null;
+  roles: string;
+}
+
+/**
+ * Listado administrativo de usuarios.
+ *
+ * Incluye estado, bloqueo y último ingreso; los roles llegan como códigos
+ * separados por comas y se convierten en lista en la capa que responde.
+ */
+export async function listUsersForAdmin(db: D1Database): Promise<UserAdminRow[]> {
+  return all<UserAdminRow>(
     db,
-    `SELECT u.id, u.username, u.display_name, u.is_active,
+    `SELECT u.id, u.username, u.email, u.display_name, u.is_active,
+            u.must_change_password, u.locked_until, u.last_login_at,
             COALESCE(GROUP_CONCAT(r.code), '') AS roles
        FROM users u
        LEFT JOIN user_roles ur ON ur.user_id = u.id
@@ -201,4 +218,114 @@ export async function listUsersWithRoles(db: D1Database): Promise<
       GROUP BY u.id
       ORDER BY u.username`,
   );
+}
+
+export async function findUserAdminRow(
+  db: D1Database,
+  id: number,
+): Promise<UserAdminRow | null> {
+  return first<UserAdminRow>(
+    db,
+    `SELECT u.id, u.username, u.email, u.display_name, u.is_active,
+            u.must_change_password, u.locked_until, u.last_login_at,
+            COALESCE(GROUP_CONCAT(r.code), '') AS roles
+       FROM users u
+       LEFT JOIN user_roles ur ON ur.user_id = u.id
+       LEFT JOIN roles r ON r.id = ur.role_id
+      WHERE u.id = ? AND u.archived_at IS NULL
+      GROUP BY u.id`,
+    id,
+  );
+}
+
+export async function updateUserProfile(
+  db: D1Database,
+  id: number,
+  profile: { displayName: string | null; email: string | null },
+): Promise<void> {
+  await run(
+    db,
+    `UPDATE users SET display_name = ?, email = ?, updated_at = ?
+      WHERE id = ? AND archived_at IS NULL`,
+    profile.displayName,
+    profile.email,
+    nowIso(),
+    id,
+  );
+}
+
+export async function setUserActive(db: D1Database, id: number, isActive: boolean): Promise<void> {
+  await run(
+    db,
+    `UPDATE users SET is_active = ?, updated_at = ? WHERE id = ? AND archived_at IS NULL`,
+    isActive ? 1 : 0,
+    nowIso(),
+    id,
+  );
+}
+
+/** Reemplaza por completo los roles del usuario. */
+export async function replaceUserRoles(
+  db: D1Database,
+  id: number,
+  roleCodes: readonly string[],
+): Promise<void> {
+  await run(db, `DELETE FROM user_roles WHERE user_id = ?`, id);
+  for (const code of roleCodes) {
+    await run(
+      db,
+      `INSERT INTO user_roles (user_id, role_id)
+         SELECT ?, id FROM roles WHERE code = ? AND archived_at IS NULL`,
+      id,
+      code,
+    );
+  }
+}
+
+export async function unlockUser(db: D1Database, id: number): Promise<void> {
+  await run(
+    db,
+    `UPDATE users SET failed_attempts = 0, locked_until = NULL, updated_at = ?
+      WHERE id = ? AND archived_at IS NULL`,
+    nowIso(),
+    id,
+  );
+}
+
+/** Archiva la cuenta y cierra sus sesiones: deja de poder usarse. */
+export async function archiveUserAccount(db: D1Database, id: number): Promise<void> {
+  await run(
+    db,
+    `UPDATE users SET archived_at = ?, is_active = 0, updated_at = ?
+      WHERE id = ? AND archived_at IS NULL`,
+    nowIso(),
+    nowIso(),
+    id,
+  );
+  await run(db, `DELETE FROM sessions WHERE user_id = ?`, id);
+}
+
+/** Invalida las sesiones abiertas de un usuario. */
+export async function deleteSessionsForUser(db: D1Database, id: number): Promise<void> {
+  await run(db, `DELETE FROM sessions WHERE user_id = ?`, id);
+}
+
+/**
+ * Administradores **activos** que quedan. Excluir a uno permite comprobar si
+ * quitarle el rol o desactivarlo dejaría la instalación sin ningún
+ * administrador con acceso.
+ */
+export async function countActiveAdmins(db: D1Database, excludeUserId?: number): Promise<number> {
+  const row = await first<{ total: number }>(
+    db,
+    `SELECT COUNT(DISTINCT u.id) AS total
+       FROM users u
+       JOIN user_roles ur ON ur.user_id = u.id
+       JOIN roles r ON r.id = ur.role_id
+      WHERE u.archived_at IS NULL AND u.is_active = 1 AND r.code = 'admin'
+        AND (? IS NULL OR u.id <> ?)`,
+    excludeUserId ?? null,
+    excludeUserId ?? null,
+  );
+  return row?.total ?? 0;
 }

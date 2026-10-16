@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { Link } from '../../lib/router';
 import { toPlainText } from '../../lib/richtext';
 import { useSite } from './SiteContext';
@@ -77,9 +78,40 @@ function socialLabel(social: SocialLink): string {
   return SOCIAL_LABELS[social.network.toLowerCase()] ?? social.network;
 }
 
+/*
+ * ¿Se desplazó la página más allá de un umbral?
+ *
+ * Se resuelve con un centinela invisible al inicio del documento observado por
+ * `IntersectionObserver`: cuando deja de verse, la página se ha desplazado. Se
+ * evita así un escucha de `scroll`. El centinela (64 px) fija el umbral y es la
+ * propia línea superior de la página.
+ */
+function useScrolledPastTop(): { sentinelRef: RefObject<HTMLDivElement | null>; scrolled: boolean } {
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (entry) setScrolled(!entry.isIntersecting);
+      },
+      { threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return { sentinelRef, scrolled };
+}
+
 /** Encabezado institucional con escudo, nombre y navegación por secciones. */
 export function SiteHeader() {
   const { site } = useSite();
+  const { sentinelRef, scrolled } = useScrolledPastTop();
   if (!site) return null;
 
   const { institution, sections, pages } = site;
@@ -102,57 +134,69 @@ export function SiteHeader() {
   const displayName = institution.name.trim() || 'Cuerpo de Bomberos';
 
   return (
-    <header className="border-b border-line bg-surface">
-      <Container className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-        <AppLink to="/" className="flex items-center gap-3">
-          {institution.shield ? (
-            <img
-              src={institution.shield.url}
-              alt={institution.shield.alt ?? `Escudo de ${displayName}`}
-              width={48}
-              height={48}
-              className="h-12 w-12 shrink-0 object-contain"
-            />
-          ) : (
-            <span
-              aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand text-lg font-bold text-white"
-            >
-              {initials(displayName)}
+    <>
+      {/*
+        Centinela invisible en la cabecera del documento: mide el umbral de
+        desplazamiento (64 px) sin escuchar `scroll`. Es decorativo y no
+        intercepta el puntero.
+      */}
+      <div
+        ref={sentinelRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-16"
+      />
+      <header data-scrolled={scrolled ? 'true' : 'false'} className="site-header">
+        <Container className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-3.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <AppLink to="/" className="flex items-center gap-3">
+            {institution.shield ? (
+              <img
+                src={institution.shield.url}
+                alt={institution.shield.alt ?? `Escudo de ${displayName}`}
+                width={48}
+                height={48}
+                className="h-12 w-12 shrink-0 object-contain"
+              />
+            ) : (
+              <span
+                aria-hidden="true"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand text-lg font-bold text-white"
+              >
+                {initials(displayName)}
+              </span>
+            )}
+            <span className="flex flex-col">
+              <span className="text-lg leading-tight font-bold text-ink">{displayName}</span>
+              {institution.number ? (
+                <span className="text-sm text-ink-muted">{institution.number}</span>
+              ) : null}
             </span>
-          )}
-          <span className="flex flex-col">
-            <span className="text-lg leading-tight font-bold text-ink">{displayName}</span>
-            {institution.number ? (
-              <span className="text-sm text-ink-muted">{institution.number}</span>
-            ) : null}
-          </span>
-        </AppLink>
+          </AppLink>
 
-        <nav aria-label="Navegación principal">
-          <ul className="flex flex-wrap gap-x-5 gap-y-2">
-            {navItems.map((item) => (
-              <li key={item.href}>
+          <nav aria-label="Navegación principal">
+            <ul className="flex flex-wrap gap-x-1 gap-y-1">
+              {navItems.map((item) => (
+                <li key={item.href}>
+                  <AppLink
+                    to={item.href}
+                    className="inline-flex min-h-11 items-center rounded-full px-3 text-base font-semibold text-ink transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted hover:text-accent-strong"
+                  >
+                    {item.label}
+                  </AppLink>
+                </li>
+              ))}
+              <li>
                 <AppLink
-                  to={item.href}
-                  className="inline-flex min-h-11 items-center text-base font-semibold text-ink transition-colors duration-200 ease-out hover:text-accent-strong"
+                  to="/admin"
+                  className="inline-flex min-h-11 items-center rounded-full px-3 text-base text-ink-muted transition-colors duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted hover:text-ink"
                 >
-                  {item.label}
+                  Panel
                 </AppLink>
               </li>
-            ))}
-            <li>
-              <AppLink
-                to="/admin"
-                className="inline-flex min-h-11 items-center text-base text-ink-muted transition-colors duration-200 ease-out hover:text-ink"
-              >
-                Panel
-              </AppLink>
-            </li>
-          </ul>
-        </nav>
-      </Container>
-    </header>
+            </ul>
+          </nav>
+        </Container>
+      </header>
+    </>
   );
 }
 
@@ -171,7 +215,7 @@ export function SiteFooter() {
 
   return (
     <footer className="border-t border-line bg-muted">
-      <Container className="mx-auto grid w-full max-w-6xl gap-8 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+      <Container className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 md:grid-cols-3 lg:px-8">
         <div className="flex flex-col gap-3">
           <p className="text-lg font-bold text-ink">{displayName}</p>
           {institution.number ? <p className="text-sm text-ink-muted">{institution.number}</p> : null}

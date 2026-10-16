@@ -15,6 +15,7 @@ export interface PersonRow {
   emergency_name: string | null;
   emergency_phone: string | null;
   history: string | null;
+  photo_object_id: number | null;
   is_active: number;
   created_at: string;
   updated_at: string;
@@ -34,7 +35,7 @@ export interface PositionRow {
 }
 
 const PERSON_COLUMNS = `id, full_name, rut, quality_id, phone, email, address, birth_date,
-  join_date, registry_no, emergency_name, emergency_phone, history, is_active,
+  join_date, registry_no, emergency_name, emergency_phone, history, photo_object_id, is_active,
   created_at, updated_at, archived_at`;
 
 export async function listPersons(db: D1Database, search?: string): Promise<PersonRow[]> {
@@ -100,6 +101,8 @@ export interface PersonInput {
   emergencyName?: string | null | undefined;
   emergencyPhone?: string | null | undefined;
   history?: string | null | undefined;
+  /** Foto de la persona: objeto **privado**, es un dato personal. */
+  photoObjectId?: number | null | undefined;
   isActive?: boolean | undefined;
 }
 
@@ -109,8 +112,8 @@ export async function insertPerson(db: D1Database, input: PersonInput): Promise<
     db,
     `INSERT INTO persons
        (full_name, rut, quality_id, phone, email, address, birth_date, join_date, registry_no,
-        emergency_name, emergency_phone, history, is_active, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        emergency_name, emergency_phone, history, photo_object_id, is_active, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     input.fullName,
     input.rut ?? null,
     input.qualityId ?? null,
@@ -123,6 +126,7 @@ export async function insertPerson(db: D1Database, input: PersonInput): Promise<
     input.emergencyName ?? null,
     input.emergencyPhone ?? null,
     input.history ?? null,
+    input.photoObjectId ?? null,
     input.isActive === false ? 0 : 1,
     now,
     now,
@@ -140,7 +144,7 @@ export async function updatePerson(
     `UPDATE persons SET
        full_name = ?, rut = ?, quality_id = ?, phone = ?, email = ?, address = ?,
        birth_date = ?, join_date = ?, registry_no = ?, emergency_name = ?, emergency_phone = ?,
-       history = ?, is_active = ?, updated_at = ?
+       history = ?, photo_object_id = ?, is_active = ?, updated_at = ?
      WHERE id = ?`,
     input.fullName,
     input.rut ?? null,
@@ -154,6 +158,7 @@ export async function updatePerson(
     input.emergencyName ?? null,
     input.emergencyPhone ?? null,
     input.history ?? null,
+    input.photoObjectId ?? null,
     input.isActive === false ? 0 : 1,
     nowIso(),
     id,
@@ -310,7 +315,7 @@ export async function findPersonForFicha(
     db,
     `SELECT p.id, p.full_name, p.rut, p.quality_id, p.phone, p.email, p.address,
             p.birth_date, p.join_date, p.registry_no, p.emergency_name, p.emergency_phone,
-            p.history, p.is_active, p.created_at, p.updated_at, p.archived_at,
+            p.history, p.photo_object_id, p.is_active, p.created_at, p.updated_at, p.archived_at,
             q.name AS quality_name
        FROM persons p
        LEFT JOIN qualities q ON q.id = p.quality_id

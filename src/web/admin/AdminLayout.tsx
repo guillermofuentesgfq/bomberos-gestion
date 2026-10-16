@@ -16,6 +16,8 @@ export interface AdminLayoutUser {
   username: string;
   displayName: string | null;
   roles: string[];
+  /** Permisos efectivos: el menú oculta lo que no se puede usar. */
+  permissions: string[];
 }
 
 export interface AdminLayoutProps {
@@ -29,6 +31,8 @@ export interface AdminLayoutProps {
 export interface AdminSection {
   label: string;
   path: string;
+  /** Si se indica, la sección solo se muestra con ese permiso. */
+  permission?: string;
 }
 
 /** Rutas de navegación del panel. El flujo que cablea `App.tsx` las enruta. */
@@ -38,6 +42,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Movimientos', path: '/admin/movimientos' },
   { label: 'Informes', path: '/admin/informes' },
   { label: 'Contenido', path: '/admin/contenido' },
+  { label: 'Usuarios', path: '/admin/usuarios', permission: 'users.read' },
   { label: 'Ajustes', path: '/admin/ajustes' },
 ];
 
@@ -132,7 +137,10 @@ export function AdminLayout({ user, onLogout, children, currentPath }: AdminLayo
       <nav aria-label="Secciones del panel" className="border-b border-line bg-surface">
         <div className="mx-auto w-full max-w-6xl px-6">
           <ul className="flex flex-wrap gap-1">
-            {ADMIN_SECTIONS.map((section) => {
+            {ADMIN_SECTIONS.filter(
+              (section) =>
+                section.permission === undefined || user.permissions.includes(section.permission),
+            ).map((section) => {
               const active = isSectionActive(currentPath, section.path);
               return (
                 <li key={section.path}>

@@ -733,4 +733,49 @@ describe('catálogo de personas y ficha', () => {
     const missing = await api.get('/api/v1/persons/99999/ficha');
     expect(missing.status).toBe(404);
   });
+
+  it('guarda la foto de la persona y la lleva a la ficha', async () => {
+    const { api, personId } = await bootstrap(1);
+
+    // La foto es un dato personal: se sube como objeto privado.
+    const png =
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const binary = atob(png);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const form = new FormData();
+    form.append('file', new File([bytes], 'persona.png', { type: 'image/png' }));
+    form.append('isPublic', 'false');
+    const uploaded = await api.request<{ id: number }>('POST', '/api/v1/files', {
+      form,
+      csrf: true,
+    });
+    expect(uploaded.status).toBe(201);
+    const objectId = uploaded.body.data?.id ?? 0;
+
+    const updated = await api.put(`/api/v1/persons/${personId}`, {
+      fullName: 'Integrante de Prueba',
+      photoObjectId: objectId,
+    });
+    expect(updated.status).toBe(200);
+
+    const detail = await api.get<{ person: { photo_object_id: number | null } }>(
+      `/api/v1/persons/${personId}`,
+    );
+    expect(detail.body.data?.person.photo_object_id).toBe(objectId);
+
+    const ficha = await api.get<{ person: { photoObjectId: number | null } }>(
+      `/api/v1/persons/${personId}/ficha`,
+    );
+    expect(ficha.body.data?.person.photoObjectId).toBe(objectId);
+
+    // Quitar la foto es enviar `null`.
+    await api.put(`/api/v1/persons/${personId}`, {
+      fullName: 'Integrante de Prueba',
+      photoObjectId: null,
+    });
+    const cleared = await api.get<{ person: { photo_object_id: number | null } }>(
+      `/api/v1/persons/${personId}`,
+    );
+    expect(cleared.body.data?.person.photo_object_id).toBeNull();
+  });
 });
