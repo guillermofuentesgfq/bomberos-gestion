@@ -13,6 +13,7 @@ import {
   MovementsPage,
   PersonDetailPage,
   PersonsPage,
+  SettingsPage,
 } from './admin';
 
 /** Enlace para saltar al contenido principal con el teclado. */
@@ -78,6 +79,8 @@ function AdminPanel() {
     content = <MovementsPage />;
   } else if (currentPath === '/admin/contenido') {
     content = <ContentAdminPage csrfToken={csrfToken} />;
+  } else if (currentPath === '/admin/ajustes') {
+    content = <SettingsPage csrfToken={csrfToken} />;
   } else {
     content = <InventoryPage csrfToken={csrfToken} />;
   }

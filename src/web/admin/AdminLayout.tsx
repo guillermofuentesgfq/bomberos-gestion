@@ -37,6 +37,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Personas', path: '/admin/personas' },
   { label: 'Movimientos', path: '/admin/movimientos' },
   { label: 'Contenido', path: '/admin/contenido' },
+  { label: 'Ajustes', path: '/admin/ajustes' },
 ];
 
 function cleanPath(path: string): string {

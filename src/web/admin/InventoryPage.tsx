@@ -16,6 +16,7 @@ import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
 import { TextField } from '../components/TextField';
 import { formatDate } from '../lib/format';
+import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
 import { CheckboxField, SelectField, StatusMessage, TextAreaField } from './adminFields';
 import type { SelectOption } from './adminFields';
@@ -834,6 +835,17 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
       {catalogState.status === 'error' ? (
         <Alert tone="error" title="No se pudo cargar el catálogo">
           {errorMessage(catalogState.error)}
+        </Alert>
+      ) : null}
+
+      {catalog && catalog.locations.length === 0 ? (
+        <Alert tone="warning" title="Primero crea al menos una ubicación">
+          Para registrar material hay que indicar dónde está. Agrega las ubicaciones y
+          categorías de tu institución en{' '}
+          <Link to="/admin/ajustes" className="font-semibold underline underline-offset-2">
+            Ajustes
+          </Link>
+          .
         </Alert>
       ) : null}
 

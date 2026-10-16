@@ -115,6 +115,43 @@ describe('sitio público y CMS', () => {
     const xml = await new Response(sitemap.bytes).text();
     expect(xml).not.toContain('pagina-oculta');
   });
+
+  it('permite activar, desactivar y reordenar las secciones de la portada', async () => {
+    const api = await adminClient();
+    const before = await api.get<{
+      sections: { key: string; isEnabled: boolean; sortOrder: number }[];
+    }>('/api/v1/site/sections');
+    expect(before.status).toBe(200);
+    const sections = before.body.data?.sections ?? [];
+    expect(sections.length).toBeGreaterThan(0);
+
+    const first = sections[0];
+    expect(first).toBeDefined();
+    if (!first) return;
+
+    const toggled = await api.put(`/api/v1/site/sections/${first.key}`, {
+      isEnabled: !first.isEnabled,
+    });
+    expect(toggled.status).toBe(200);
+
+    const order = [...sections].reverse().map((section) => section.key);
+    const reordered = await api.post('/api/v1/site/sections/reorder', { order });
+    expect(reordered.status).toBe(200);
+
+    const after = await api.get<{ sections: { key: string }[] }>('/api/v1/site/sections');
+    expect(after.body.data?.sections[0]?.key).toBe(order[0]);
+  });
+
+  it('una sección desactivada deja de aparecer en el sitio público', async () => {
+    const api = await adminClient();
+    const disabled = await api.put('/api/v1/site/sections/contact', { isEnabled: false });
+    expect(disabled.status).toBe(200);
+
+    const anonymous = new ApiClient();
+    const site = await anonymous.get<PublicSite & { sections: { key: string }[] }>('/api/v1/site');
+    const keys = (site.body.data?.sections ?? []).map((section) => section.key);
+    expect(keys).not.toContain('contact');
+  });
 });
 
 describe('informes y exportación', () => {
