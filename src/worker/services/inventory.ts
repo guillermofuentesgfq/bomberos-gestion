@@ -40,7 +40,15 @@ export function ensureStockStatement(
   );
 }
 
-/** Resta existencias. Falla (y revierte el batch) si quedarían negativas. */
+/**
+ * Resta existencias. Falla (y revierte el batch) si quedarían negativas.
+ *
+ * El `CHECK (quantity >= 0)` solo se evalúa sobre la fila que el `UPDATE` toca:
+ * si la fila origen no existe, un `UPDATE` incondicional afectaría 0 filas sin
+ * error y el lote confirmaría una operación que no descontó nada (existencias
+ * «acuñadas de la nada» en el destino). Por eso **toda** operación que reste
+ * existencias asegura antes la fila origen con `ensureStockStatement`.
+ */
 export function decrementStockStatement(
   db: D1Database,
   materialId: number,
@@ -372,6 +380,9 @@ export async function transferStock(
   let transferId = 0;
   try {
     const results = await batch(db, [
+      // Se asegura la fila **origen** antes de descontar: sin ella el UPDATE no
+      // afectaría ninguna fila y el CHECK nunca se evaluaría.
+      ensureStockStatement(db, material.id, input.fromLocationId, input.conditionCode),
       ensureStockStatement(db, material.id, input.toLocationId, input.conditionCode),
       decrementStockStatement(db, material.id, input.fromLocationId, input.conditionCode, input.quantity),
       incrementStockStatement(db, material.id, input.toLocationId, input.conditionCode, input.quantity),
@@ -402,7 +413,7 @@ export async function transferStock(
         actorUserId: actor.userId,
       }),
     ]);
-    const insertResult = results[3];
+    const insertResult = results[4];
     transferId = Number(insertResult?.meta.last_row_id ?? 0);
   } catch (error) {
     stockError(error, 'el traslado');
@@ -455,6 +466,8 @@ export async function changeCondition(
 
   try {
     await batch(db, [
+      // Igual que en el traslado: la fila origen se asegura antes de descontar.
+      ensureStockStatement(db, material.id, input.locationId, input.fromCondition),
       ensureStockStatement(db, material.id, input.locationId, input.toCondition),
       decrementStockStatement(db, material.id, input.locationId, input.fromCondition, input.quantity),
       incrementStockStatement(db, material.id, input.locationId, input.toCondition, input.quantity),
@@ -516,6 +529,9 @@ export async function writeOff(
   let writeoffId = 0;
   try {
     const results = await batch(db, [
+      // La fila origen se asegura antes de descontar: si no existiera, la baja
+      // registraría un acta sin descontar nada (una baja «fantasma»).
+      ensureStockStatement(db, material.id, input.locationId, input.conditionCode),
       stmt(
         db,
         `INSERT INTO writeoffs
@@ -546,7 +562,7 @@ export async function writeOff(
         actorUserId: actor.userId,
       }),
     ]);
-    writeoffId = Number(results[0]?.meta.last_row_id ?? 0);
+    writeoffId = Number(results[1]?.meta.last_row_id ?? 0);
   } catch (error) {
     stockError(error, 'la baja');
   }

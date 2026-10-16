@@ -22,11 +22,7 @@ import {
 } from '../services/inventory';
 import { actaInstitution } from '../services/actas';
 import { requireScopedObject } from '../services/storage';
-import {
-  inFlightError,
-  reserveIdempotency,
-  saveIdempotencyResponse,
-} from '../services/idempotency';
+import { withIdempotency } from '../services/idempotency';
 
 type AppEnv = { Bindings: Env; Variables: Variables };
 
@@ -449,36 +445,31 @@ const transferSchema = z.object({
 
 inventoryRoutes.post('/transfers', requireAuth, requireCsrf, requirePermission('inventory.transfer'), async (c) => {
   const body = await readJson(c, transferSchema);
-  const idempotencyKey = c.req.header('idempotency-key');
+  const idempotencyKey = c.req.header('idempotency-key') ?? null;
+  const userId = c.get('user')?.id ?? null;
 
-  if (idempotencyKey) {
-    const reservation = await reserveIdempotency(c.env.DB, {
-      key: idempotencyKey,
-      scope: 'transfer',
-      userId: c.get('user')?.id ?? null,
-    });
-    if (reservation.status === 'replay') return ok(c, JSON.parse(reservation.response));
-    if (reservation.status === 'in_flight') throw inFlightError();
-  }
-
-  const result = await transferStock(
-    { DB: c.env.DB },
-    {
-      materialId: body.materialId,
-      fromLocationId: body.fromLocationId,
-      toLocationId: body.toLocationId,
-      conditionCode: body.conditionCode,
-      quantity: body.quantity,
-      responsible: body.responsible ?? null,
-      notes: body.notes ?? null,
-    },
-    actorFrom(c),
+  const { replayed, response } = await withIdempotency(
+    c.env.DB,
+    idempotencyKey,
+    'transfer',
+    userId,
+    () =>
+      transferStock(
+        { DB: c.env.DB },
+        {
+          materialId: body.materialId,
+          fromLocationId: body.fromLocationId,
+          toLocationId: body.toLocationId,
+          conditionCode: body.conditionCode,
+          quantity: body.quantity,
+          responsible: body.responsible ?? null,
+          notes: body.notes ?? null,
+        },
+        actorFrom(c),
+      ),
   );
 
-  if (idempotencyKey) {
-    await saveIdempotencyResponse(c.env.DB, idempotencyKey, 'transfer', result);
-  }
-  return ok(c, result, 201);
+  return ok(c, response, replayed ? 200 : 201);
 });
 
 // --- Bajas ------------------------------------------------------------------
@@ -494,35 +485,30 @@ const writeOffSchema = z.object({
 
 inventoryRoutes.post('/writeoffs', requireAuth, requireCsrf, requirePermission('inventory.writeoff'), async (c) => {
   const body = await readJson(c, writeOffSchema);
-  const idempotencyKey = c.req.header('idempotency-key');
+  const idempotencyKey = c.req.header('idempotency-key') ?? null;
+  const userId = c.get('user')?.id ?? null;
 
-  if (idempotencyKey) {
-    const reservation = await reserveIdempotency(c.env.DB, {
-      key: idempotencyKey,
-      scope: 'writeoff',
-      userId: c.get('user')?.id ?? null,
-    });
-    if (reservation.status === 'replay') return ok(c, JSON.parse(reservation.response));
-    if (reservation.status === 'in_flight') throw inFlightError();
-  }
-
-  const result = await writeOff(
-    { DB: c.env.DB },
-    {
-      materialId: body.materialId,
-      locationId: body.locationId,
-      conditionCode: body.conditionCode,
-      quantity: body.quantity,
-      reason: body.reason,
-      authorizedBy: body.authorizedBy,
-    },
-    actorFrom(c),
+  const { replayed, response } = await withIdempotency(
+    c.env.DB,
+    idempotencyKey,
+    'writeoff',
+    userId,
+    () =>
+      writeOff(
+        { DB: c.env.DB },
+        {
+          materialId: body.materialId,
+          locationId: body.locationId,
+          conditionCode: body.conditionCode,
+          quantity: body.quantity,
+          reason: body.reason,
+          authorizedBy: body.authorizedBy,
+        },
+        actorFrom(c),
+      ),
   );
 
-  if (idempotencyKey) {
-    await saveIdempotencyResponse(c.env.DB, idempotencyKey, 'writeoff', result);
-  }
-  return ok(c, result, 201);
+  return ok(c, response, replayed ? 200 : 201);
 });
 
 // --- Acta de baja -----------------------------------------------------------

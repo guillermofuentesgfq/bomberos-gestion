@@ -16,11 +16,7 @@ import * as catalog from '../repositories/catalog';
 import { actaInstitution } from '../services/actas';
 import { assignMaterial, returnMaterial } from '../services/assignments';
 import { requireScopedObject } from '../services/storage';
-import {
-  inFlightError,
-  reserveIdempotency,
-  saveIdempotencyResponse,
-} from '../services/idempotency';
+import { withIdempotency } from '../services/idempotency';
 
 type AppEnv = { Bindings: Env; Variables: Variables };
 
@@ -402,39 +398,34 @@ const assignSchema = z.object({
 personRoutes.post('/:id/assignments', requireAuth, requireCsrf, requirePermission('inventory.assign'), async (c) => {
   const id = parseId(c.req.param('id'), 'persona');
   const body = await readJson(c, assignSchema);
-  const idempotencyKey = c.req.header('idempotency-key');
+  const idempotencyKey = c.req.header('idempotency-key') ?? null;
+  const userId = c.get('user')?.id ?? null;
 
-  if (idempotencyKey) {
-    const reservation = await reserveIdempotency(c.env.DB, {
-      key: idempotencyKey,
-      scope: 'assignment',
-      userId: c.get('user')?.id ?? null,
-    });
-    if (reservation.status === 'replay') return ok(c, JSON.parse(reservation.response));
-    if (reservation.status === 'in_flight') throw inFlightError();
-  }
-
-  const result = await assignMaterial(
-    { DB: c.env.DB },
-    {
-      personId: id,
-      deliveredBy: body.deliveredBy,
-      notes: body.notes ?? null,
-      lines: body.lines.map((line) => ({
-        materialId: line.materialId,
-        unitId: line.unitId ?? null,
-        locationId: line.locationId,
-        quantity: line.quantity,
-        conditionOut: line.conditionOut ?? null,
-      })),
-    },
-    actorFrom(c),
+  const { replayed, response } = await withIdempotency(
+    c.env.DB,
+    idempotencyKey,
+    'assignment',
+    userId,
+    () =>
+      assignMaterial(
+        { DB: c.env.DB },
+        {
+          personId: id,
+          deliveredBy: body.deliveredBy,
+          notes: body.notes ?? null,
+          lines: body.lines.map((line) => ({
+            materialId: line.materialId,
+            unitId: line.unitId ?? null,
+            locationId: line.locationId,
+            quantity: line.quantity,
+            conditionOut: line.conditionOut ?? null,
+          })),
+        },
+        actorFrom(c),
+      ),
   );
 
-  if (idempotencyKey) {
-    await saveIdempotencyResponse(c.env.DB, idempotencyKey, 'assignment', result);
-  }
-  return ok(c, result, 201);
+  return ok(c, response, replayed ? 200 : 201);
 });
 
 // --- Devoluciones -----------------------------------------------------------
@@ -457,33 +448,28 @@ const returnSchema = z.object({
 personRoutes.post('/:id/returns', requireAuth, requireCsrf, requirePermission('inventory.return'), async (c) => {
   const id = parseId(c.req.param('id'), 'persona');
   const body = await readJson(c, returnSchema);
-  const idempotencyKey = c.req.header('idempotency-key');
+  const idempotencyKey = c.req.header('idempotency-key') ?? null;
+  const userId = c.get('user')?.id ?? null;
 
-  if (idempotencyKey) {
-    const reservation = await reserveIdempotency(c.env.DB, {
-      key: idempotencyKey,
-      scope: 'return',
-      userId: c.get('user')?.id ?? null,
-    });
-    if (reservation.status === 'replay') return ok(c, JSON.parse(reservation.response));
-    if (reservation.status === 'in_flight') throw inFlightError();
-  }
-
-  const result = await returnMaterial(
-    { DB: c.env.DB },
-    {
-      personId: id,
-      lines: body.lines,
-      toLocationId: body.toLocationId,
-      conditionCode: body.conditionCode,
-      receivedBy: body.receivedBy,
-      notes: body.notes ?? null,
-    },
-    actorFrom(c),
+  const { replayed, response } = await withIdempotency(
+    c.env.DB,
+    idempotencyKey,
+    'return',
+    userId,
+    () =>
+      returnMaterial(
+        { DB: c.env.DB },
+        {
+          personId: id,
+          lines: body.lines,
+          toLocationId: body.toLocationId,
+          conditionCode: body.conditionCode,
+          receivedBy: body.receivedBy,
+          notes: body.notes ?? null,
+        },
+        actorFrom(c),
+      ),
   );
 
-  if (idempotencyKey) {
-    await saveIdempotencyResponse(c.env.DB, idempotencyKey, 'return', result);
-  }
-  return ok(c, result, 201);
+  return ok(c, response, replayed ? 200 : 201);
 });

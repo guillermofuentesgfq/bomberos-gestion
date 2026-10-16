@@ -168,8 +168,88 @@ describe('integridad del inventario', () => {
     expect(await countRows('movements', "movement_type = 'baja'")).toBe(1);
   });
 
-  it('no es vulnerable a inyección SQL en los filtros de búsqueda', async () => {
-    const { api } = await bootstrap(1);
+  it('libera la clave de idempotencia cuando la operación falla', async () => {
+    const { api, materialId, bodegaId } = await bootstrap(1);
+    const key = 'clave-fallida';
+
+    // Una baja mayor que las existencias se rechaza…
+    const failed = await api.post(
+      '/api/v1/inventory/writeoffs',
+      { materialId, locationId: bodegaId, conditionCode: 'operativo', quantity: 5, reason: 'Daño irreparable', authorizedBy: 'Capitán' },
+      { idempotencyKey: key },
+    );
+    expect(failed.status).toBe(422);
+
+    // …y la misma clave puede reintentarse (no queda «envenenada»).
+    const retried = await api.post(
+      '/api/v1/inventory/writeoffs',
+      { materialId, locationId: bodegaId, conditionCode: 'operativo', quantity: 1, reason: 'Daño irreparable', authorizedBy: 'Capitán' },
+      { idempotencyKey: key },
+    );
+    expect(retried.status).toBe(201);
+    expect(await stockOf(materialId, bodegaId)).toBe(0);
+  });
+
+  it('no re-entrega a otro titular la respuesta de una clave de idempotencia', async () => {
+    const { api, materialId, bodegaId, salaId } = await bootstrap(4);
+    await seedUser('operador-dos', 'ContrasenaLarga123', 'inventory_manager');
+    const other = new ApiClient();
+    expect(await other.login('operador-dos', 'ContrasenaLarga123')).toBe(200);
+
+    const key = 'clave-cruzada';
+    const first = await api.post(
+      '/api/v1/inventory/transfers',
+      { materialId, fromLocationId: bodegaId, toLocationId: salaId, conditionCode: 'operativo', quantity: 1 },
+      { idempotencyKey: key },
+    );
+    expect(first.status).toBe(201);
+
+    // Otro titular con la misma clave no recibe la respuesta ajena ni su
+    // operación se omite en silencio.
+    const foreign = await other.post(
+      '/api/v1/inventory/transfers',
+      { materialId, fromLocationId: bodegaId, toLocationId: salaId, conditionCode: 'operativo', quantity: 1 },
+      { idempotencyKey: key },
+    );
+    expect(foreign.status).toBe(409);
+    expect(await countRows('transfers')).toBe(1);
+  });
+
+  it('no acuña existencias ni registra bajas fantasma si la fila de origen no existe', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+    const bodega = await api.post<{ id: number }>('/api/v1/inventory/catalog/locations', { name: 'Bodega' });
+    const sala = await api.post<{ id: number }>('/api/v1/inventory/catalog/locations', { name: 'Sala' });
+    const bodegaId = bodega.body.data?.id ?? 0;
+    const salaId = sala.body.data?.id ?? 0;
+    // Material creado sin existencias: no tiene fila en stock_levels.
+    const material = await api.post<{ id: number }>('/api/v1/inventory/materials', { name: 'Sin existencias' });
+    const materialId = material.body.data?.id ?? 0;
+
+    const transfer = await api.post('/api/v1/inventory/transfers', {
+      materialId,
+      fromLocationId: bodegaId,
+      toLocationId: salaId,
+      conditionCode: 'operativo',
+      quantity: 5,
+    });
+    expect(transfer.status).toBe(422);
+    expect(await stockOf(materialId, salaId)).toBe(0);
+    expect(await countRows('transfers')).toBe(0);
+
+    const writeoff = await api.post('/api/v1/inventory/writeoffs', {
+      materialId,
+      locationId: salaId,
+      conditionCode: 'operativo',
+      quantity: 1,
+      reason: 'Daño irreparable',
+      authorizedBy: 'Capitán',
+    });
+    expect(writeoff.status).toBe(422);
+    expect(await countRows('writeoffs')).toBe(0);
+  });
+
+  it('no es vulnerable a inyección SQL en los filtros de búsqueda', async () => {    const { api } = await bootstrap(1);
     const injected = await api.get(
       `/api/v1/inventory/materials?q=${encodeURIComponent("' OR 1=1; DROP TABLE materials;--")}`,
     );
