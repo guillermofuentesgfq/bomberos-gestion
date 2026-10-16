@@ -290,3 +290,44 @@ describe('imágenes del sitio público', () => {
     expect(response.status).toBe(422);
   });
 });
+
+describe('texto enriquecido del contenido', () => {
+  it('sanea el HTML al guardar: quita scripts y enlaces peligrosos', async () => {
+    const api = await adminClient();
+    const created = await api.post<{ id: number; slug: string }>('/api/v1/site/news', {
+      title: 'Incendio en el puerto',
+      body: '<p>Hola <strong>equipo</strong></p><script>alert(1)</script><p>Fin</p>',
+      summary: '<p>Resumen con <a href="javascript:alert(1)">enlace malo</a></p>',
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.data?.id ?? 0;
+
+    const detail = await api.get<{ news: { body: string; summary: string } }>(
+      `/api/v1/site/news/${id}`,
+    );
+    expect(detail.body.data?.news.body).toBe('<p>Hola <strong>equipo</strong></p><p>Fin</p>');
+    expect(detail.body.data?.news.body).not.toContain('script');
+    expect(detail.body.data?.news.summary).toBe('<p>Resumen con enlace malo</p>');
+  });
+
+  it('conserva el formato permitido y lo publica saneado en el sitio', async () => {
+    const api = await adminClient();
+    const created = await api.post<{ id: number; slug: string }>('/api/v1/site/pages', {
+      title: 'Nuestra historia',
+      body: '<h2>1985</h2><p>Se funda la compañía</p><ul><li>Primera bomba</li></ul><img src=x onerror=alert(1)>',
+    });
+    expect(created.status).toBe(201);
+    const id = created.body.data?.id ?? 0;
+    const slug = created.body.data?.slug ?? '';
+
+    const published = await api.post(`/api/v1/site/pages/${id}/publish`);
+    expect(published.status).toBe(200);
+
+    const anonymous = new ApiClient();
+    const page = await anonymous.get<{ page: { body: string } }>(`/api/v1/pages/${slug}`);
+    expect(page.status).toBe(200);
+    expect(page.body.data?.page.body).toBe(
+      '<h2>1985</h2><p>Se funda la compañía</p><ul><li>Primera bomba</li></ul>',
+    );
+  });
+});

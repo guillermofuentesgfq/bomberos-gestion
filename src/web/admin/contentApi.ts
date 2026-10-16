@@ -329,3 +329,119 @@ export async function updateActivityCover(
     coverObjectId: objectId,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Edición completa del contenido
+// ---------------------------------------------------------------------------
+
+/**
+ * Estos `PUT` reemplazan el registro entero: los campos omitidos quedan `NULL`.
+ * Por eso cada `updateX` lee primero el detalle vigente y vuelve a enviar todos
+ * los campos, aplicando encima solo los que recibe. Los campos de la entrada son
+ * opcionales justamente para poder conservar los que la pantalla no edita (por
+ * ejemplo, los metadatos SEO al cambiar el cuerpo).
+ */
+
+/** Campos editables de una página; los omitidos se conservan del detalle. */
+export interface UpdatePageInput {
+  title?: string;
+  excerpt?: string | null;
+  body?: string | null;
+  heroObjectId?: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+}
+
+export async function updatePage(
+  id: number,
+  input: UpdatePageInput,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchPageDetail(id, csrfToken);
+  await request('PUT', `/pages/${id}`, csrfToken, {
+    title: input.title ?? detail.title,
+    excerpt: input.excerpt !== undefined ? input.excerpt : detail.excerpt ?? null,
+    body: input.body !== undefined ? input.body : detail.body ?? null,
+    heroObjectId: input.heroObjectId !== undefined ? input.heroObjectId : detail.heroObjectId ?? null,
+    seoTitle: input.seoTitle !== undefined ? input.seoTitle : detail.seoTitle ?? null,
+    seoDescription:
+      input.seoDescription !== undefined ? input.seoDescription : detail.seoDescription ?? null,
+  });
+}
+
+/** Campos editables de una noticia; los omitidos se conservan del detalle. */
+export interface UpdateNewsInput {
+  title?: string;
+  summary?: string | null;
+  body?: string | null;
+  coverObjectId?: number | null;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
+}
+
+export async function updateNews(
+  id: number,
+  input: UpdateNewsInput,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchNewsDetail(id, csrfToken);
+  await request('PUT', `/news/${id}`, csrfToken, {
+    title: input.title ?? detail.title,
+    summary: input.summary !== undefined ? input.summary : detail.summary ?? null,
+    body: input.body !== undefined ? input.body : detail.body ?? null,
+    coverObjectId:
+      input.coverObjectId !== undefined ? input.coverObjectId : detail.coverObjectId ?? null,
+    seoTitle: input.seoTitle !== undefined ? input.seoTitle : detail.seoTitle ?? null,
+    seoDescription:
+      input.seoDescription !== undefined ? input.seoDescription : detail.seoDescription ?? null,
+  });
+}
+
+/** Campos editables de una actividad; los omitidos se conservan del detalle. */
+export interface UpdateActivityInput {
+  title?: string;
+  summary?: string | null;
+  body?: string | null;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  locationText?: string | null;
+  coverObjectId?: number | null;
+}
+
+export async function updateActivity(
+  id: number,
+  input: UpdateActivityInput,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchActivityDetail(id, csrfToken);
+  await request('PUT', `/activities/${id}`, csrfToken, {
+    title: input.title ?? detail.title,
+    summary: input.summary !== undefined ? input.summary : detail.summary ?? null,
+    body: input.body !== undefined ? input.body : detail.body ?? null,
+    startsAt: input.startsAt !== undefined ? input.startsAt : detail.startsAt ?? null,
+    endsAt: input.endsAt !== undefined ? input.endsAt : detail.endsAt ?? null,
+    locationText:
+      input.locationText !== undefined ? input.locationText : detail.locationText ?? null,
+    coverObjectId:
+      input.coverObjectId !== undefined ? input.coverObjectId : detail.coverObjectId ?? null,
+  });
+}
+
+/** Campos editables de una galería; los omitidos se conservan del detalle. */
+export interface UpdateGalleryInput {
+  title?: string;
+  description?: string | null;
+}
+
+export async function updateGallery(
+  id: number,
+  input: UpdateGalleryInput,
+  csrfToken: string,
+): Promise<void> {
+  const detail = await fetchGalleryDetail(id, csrfToken);
+  await request('PUT', `/galleries/${id}`, csrfToken, {
+    title: input.title ?? detail.gallery.title,
+    description:
+      input.description !== undefined ? input.description : detail.gallery.description ?? null,
+  });
+}

@@ -1,4 +1,5 @@
 import { all, first, run } from '../lib/db';
+import { nowIso } from '../lib/time';
 
 export interface LocationRow {
   id: number;
@@ -95,4 +96,30 @@ export async function insertLocation(
 export async function insertCategory(db: D1Database, name: string): Promise<number> {
   const result = await run(db, `INSERT INTO categories (name, sort_order) VALUES (?, 0)`, name);
   return Number(result.meta.last_row_id);
+}
+
+export async function insertMaterialType(
+  db: D1Database,
+  name: string,
+  categoryId: number | null,
+): Promise<number> {
+  const result = await run(
+    db,
+    `INSERT INTO material_types (name, category_id, sort_order) VALUES (?, ?, 0)`,
+    name,
+    categoryId,
+  );
+  return Number(result.meta.last_row_id);
+}
+
+/**
+ * Archiva una entrada del catálogo. No se borra: las filas que la referencian
+ * (existencias, materiales) conservan su historia.
+ */
+export async function archiveCatalogEntry(
+  db: D1Database,
+  table: 'locations' | 'categories' | 'material_types',
+  id: number,
+): Promise<void> {
+  await run(db, `UPDATE ${table} SET archived_at = ? WHERE id = ? AND archived_at IS NULL`, nowIso(), id);
 }

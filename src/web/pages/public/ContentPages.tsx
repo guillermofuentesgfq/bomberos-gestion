@@ -1,5 +1,6 @@
 import { ApiError } from '../../lib/api';
 import { formatDate, formatDateRange } from '../../lib/format';
+import { toPlainText } from '../../lib/richtext';
 import {
   fetchPublicActivityItem,
   fetchPublicActivities,
@@ -80,11 +81,13 @@ function useInstitutionName(): string {
 function PageHeading({
   title,
   intro,
+  introHtml,
   backTo,
   backLabel,
 }: {
   title: string;
   intro?: string | undefined;
+  introHtml?: string | null | undefined;
   backTo?: string | undefined;
   backLabel?: string | undefined;
 }) {
@@ -104,13 +107,24 @@ function PageHeading({
         {title}
       </h1>
       {intro ? <p className="mt-3 max-w-[65ch] text-lg text-pretty text-ink-muted">{intro}</p> : null}
+      {introHtml ? (
+        <div
+          className="richtext mt-3 max-w-[65ch] text-lg text-pretty text-ink-muted"
+          dangerouslySetInnerHTML={{ __html: introHtml }}
+        />
+      ) : null}
     </header>
   );
 }
 
 function BodyText({ body }: { body: string | null }) {
   if (!body || body.trim().length === 0) return null;
-  return <div className="whitespace-pre-line text-lg text-ink-muted">{body}</div>;
+  return (
+    <div
+      className="richtext text-lg text-ink-muted"
+      dangerouslySetInnerHTML={{ __html: body }}
+    />
+  );
 }
 
 // --- Noticias --------------------------------------------------------------
@@ -160,7 +174,10 @@ export function NewsListPage() {
                       </AppLink>
                     </h2>
                     {item.summary ? (
-                      <p className="max-w-[65ch] text-base text-ink-muted">{item.summary}</p>
+                      <div
+                        className="richtext richtext-inline max-w-[65ch] text-base text-ink-muted"
+                        dangerouslySetInnerHTML={{ __html: item.summary }}
+                      />
                     ) : null}
                   </div>
                 </article>
@@ -180,7 +197,7 @@ export function NewsDetailPage({ slug }: { slug: string }) {
   const item = state.data;
   useSeo({
     title: item?.seoTitle || (item ? `${item.title} — ${institutionName}` : 'Noticia'),
-    description: item?.seoDescription || item?.summary || null,
+    description: item?.seoDescription || toPlainText(item?.summary),
     image: item?.cover?.url ?? null,
     type: 'article',
   });
@@ -215,7 +232,12 @@ export function NewsDetailPage({ slug }: { slug: string }) {
           className="mt-6 w-full rounded-[var(--radius-card)] object-cover"
         />
       ) : null}
-      {item.summary ? <p className="mt-6 text-xl text-ink-muted">{item.summary}</p> : null}
+      {item.summary ? (
+        <div
+          className="richtext mt-6 text-xl text-ink-muted"
+          dangerouslySetInnerHTML={{ __html: item.summary }}
+        />
+      ) : null}
       <div className="mt-6">
         <BodyText body={item.body} />
       </div>
@@ -278,7 +300,10 @@ export function ActivityListPage() {
                       <p className="text-sm text-ink-muted">{item.locationText}</p>
                     ) : null}
                     {item.summary ? (
-                      <p className="max-w-[65ch] text-base text-ink-muted">{item.summary}</p>
+                      <div
+                        className="richtext richtext-inline max-w-[65ch] text-base text-ink-muted"
+                        dangerouslySetInnerHTML={{ __html: item.summary }}
+                      />
                     ) : null}
                   </div>
                 </article>
@@ -298,7 +323,7 @@ export function ActivityDetailPage({ slug }: { slug: string }) {
   const item = state.data;
   useSeo({
     title: item ? `${item.title} — ${institutionName}` : 'Actividad',
-    description: item?.summary ?? null,
+    description: toPlainText(item?.summary),
     image: item?.cover?.url ?? null,
     type: 'article',
   });
@@ -346,7 +371,12 @@ export function ActivityDetailPage({ slug }: { slug: string }) {
           className="mt-6 w-full rounded-[var(--radius-card)] object-cover"
         />
       ) : null}
-      {item.summary ? <p className="mt-6 text-xl text-ink-muted">{item.summary}</p> : null}
+      {item.summary ? (
+        <div
+          className="richtext mt-6 text-xl text-ink-muted"
+          dangerouslySetInnerHTML={{ __html: item.summary }}
+        />
+      ) : null}
       <div className="mt-6">
         <BodyText body={item.body} />
       </div>
@@ -401,7 +431,10 @@ export function GalleryListPage() {
                     {gallery.title}
                   </h2>
                   {gallery.description ? (
-                    <p className="max-w-[60ch] text-base text-ink-muted">{gallery.description}</p>
+                    <div
+                      className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
+                      dangerouslySetInnerHTML={{ __html: gallery.description }}
+                    />
                   ) : null}
                   <p className="mt-1 text-sm text-ink-muted">
                     {gallery.photoCount === 1 ? '1 fotografía' : `${gallery.photoCount} fotografías`}
@@ -423,7 +456,7 @@ export function GalleryDetailPage({ slug }: { slug: string }) {
   const gallery = state.data;
   useSeo({
     title: gallery ? `${gallery.title} — ${institutionName}` : 'Galería',
-    description: gallery?.description ?? null,
+    description: toPlainText(gallery?.description),
     image: gallery?.photos[0]?.url ?? null,
   });
 
@@ -440,7 +473,7 @@ export function GalleryDetailPage({ slug }: { slug: string }) {
     <Container className="mx-auto w-full max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
       <PageHeading
         title={gallery.title}
-        intro={gallery.description ?? undefined}
+        introHtml={gallery.description}
         backTo="/galerias"
         backLabel="Todas las galerías"
       />
@@ -478,7 +511,7 @@ export function ContentPage({ slug }: { slug: string }) {
   const page = state.data;
   useSeo({
     title: page?.seoTitle || (page ? `${page.title} — ${institutionName}` : 'Página'),
-    description: page?.seoDescription || page?.excerpt || null,
+    description: page?.seoDescription || toPlainText(page?.excerpt),
     image: page?.hero?.url ?? null,
   });
 
@@ -493,7 +526,7 @@ export function ContentPage({ slug }: { slug: string }) {
 
   return (
     <Container className={READING_CONTAINER}>
-      <PageHeading title={page.title} intro={page.excerpt ?? undefined} />
+      <PageHeading title={page.title} introHtml={page.excerpt} />
       {page.hero ? (
         <img
           src={page.hero.url}

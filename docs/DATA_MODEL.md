@@ -47,6 +47,9 @@ Migraciones en `migrations/`. Fechas en ISO-8601 UTC. Booleanos como `INTEGER`
 La separación `materials` / `material_units` / `stock_levels` corrige el defecto
 del sistema original, donde materiales y unidades físicas compartían una única
 tabla. `is_individual` indica si un material se identifica por unidad.
+`materials.photo_object_id` apunta a un objeto **privado** de `storage_objects`
+(migración `0004`): la foto se sirve solo con sesión, nunca desde el sitio
+público.
 
 ## Personas
 

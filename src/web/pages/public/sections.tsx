@@ -81,7 +81,10 @@ function NewsCard({ item }: { item: PublicNewsSummary }) {
           </AppLink>
         </h3>
         {item.summary ? (
-          <p className="max-w-[60ch] text-base text-ink-muted">{item.summary}</p>
+          <div
+            className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
+            dangerouslySetInnerHTML={{ __html: item.summary }}
+          />
         ) : null}
       </div>
     </article>
@@ -104,7 +107,10 @@ function ActivityCard({ item }: { item: PublicActivitySummary }) {
           <p className="text-sm text-ink-muted">{item.locationText}</p>
         ) : null}
         {item.summary ? (
-          <p className="max-w-[60ch] text-base text-ink-muted">{item.summary}</p>
+          <div
+            className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
+            dangerouslySetInnerHTML={{ __html: item.summary }}
+          />
         ) : null}
       </div>
     </article>
@@ -123,7 +129,10 @@ function GalleryCard({ item }: { item: PublicGallerySummary }) {
           {item.title}
         </h3>
         {item.description ? (
-          <p className="max-w-[60ch] text-base text-ink-muted">{item.description}</p>
+          <div
+            className="richtext richtext-inline max-w-[60ch] text-base text-ink-muted"
+            dangerouslySetInnerHTML={{ __html: item.description }}
+          />
         ) : null}
         <p className="mt-1 text-sm text-ink-muted">
           {item.photoCount === 1 ? '1 fotografía' : `${item.photoCount} fotografías`}

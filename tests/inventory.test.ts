@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiClient, countRows, stockOf } from './helpers';
+import { ApiClient, countRows, seedUser, stockOf } from './helpers';
 
 interface Setup {
   api: ApiClient;
@@ -214,5 +214,133 @@ describe('integridad del inventario', () => {
     expect(origin + destination).toBe(5);
     expect(destination).toBe(4);
     expect(await countRows('transfers')).toBe(2);
+  });
+});
+
+describe('edición de materiales y catálogo', () => {
+  const PNG =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  async function uploadPrivatePhoto(api: ApiClient): Promise<number> {
+    const binary = atob(PNG);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    const form = new FormData();
+    form.append('file', new File([bytes], 'casco.png', { type: 'image/png' }));
+    form.append('isPublic', 'false');
+    const response = await api.request<{ id: number }>('POST', '/api/v1/files', {
+      form,
+      csrf: true,
+    });
+    expect(response.status).toBe(201);
+    return response.body.data?.id ?? 0;
+  }
+
+  it('actualiza los campos editables y conserva los que no se envían', async () => {
+    const { api, materialId } = await bootstrap(2);
+
+    const before = await api.get<{ material: { code: string } }>(
+      `/api/v1/inventory/materials/${materialId}`,
+    );
+    const originalCode = before.body.data?.material.code ?? '';
+
+    const updated = await api.put<{ material: { name: string; minStock: number; notes: string | null } }>(
+      `/api/v1/inventory/materials/${materialId}`,
+      { name: 'Casco F1', minStock: 5, notes: 'Revisado en 2026' },
+    );
+    expect(updated.status).toBe(200);
+    expect(updated.body.data?.material.name).toBe('Casco F1');
+    expect(updated.body.data?.material.minStock).toBe(5);
+
+    const after = await api.get<{
+      material: { code: string; name: string; notes: string | null; min_stock: number };
+    }>(`/api/v1/inventory/materials/${materialId}`);
+    expect(after.body.data?.material.code).toBe(originalCode);
+    expect(after.body.data?.material.notes).toBe('Revisado en 2026');
+  });
+
+  it('rechaza un código ya usado por otro material', async () => {
+    const { api, materialId } = await bootstrap(1);
+    await api.post('/api/v1/inventory/materials', { name: 'Guante de rescate', code: 'GUA-1' });
+
+    const conflict = await api.put(`/api/v1/inventory/materials/${materialId}`, { code: 'gua-1' });
+    expect(conflict.status).toBe(409);
+  });
+
+  it('asigna y quita la foto del material', async () => {
+    const { api, materialId } = await bootstrap(1);
+    const objectId = await uploadPrivatePhoto(api);
+
+    const assigned = await api.put<{ material: { photoObjectId: number | null } }>(
+      `/api/v1/inventory/materials/${materialId}`,
+      { photoObjectId: objectId },
+    );
+    expect(assigned.status).toBe(200);
+    expect(assigned.body.data?.material.photoObjectId).toBe(objectId);
+
+    const detail = await api.get<{ material: { photo_object_id: number | null } }>(
+      `/api/v1/inventory/materials/${materialId}`,
+    );
+    expect(detail.body.data?.material.photo_object_id).toBe(objectId);
+
+    const listed = await api.get<{ id: number; photoObjectId: number | null }[]>(
+      '/api/v1/inventory/materials',
+    );
+    expect(listed.body.data?.find((item) => item.id === materialId)?.photoObjectId).toBe(objectId);
+
+    const cleared = await api.put<{ material: { photoObjectId: number | null } }>(
+      `/api/v1/inventory/materials/${materialId}`,
+      { photoObjectId: null },
+    );
+    expect(cleared.body.data?.material.photoObjectId).toBeNull();
+  });
+
+  it('guarda la foto también al crear el material', async () => {
+    const { api } = await bootstrap(1);
+    const objectId = await uploadPrivatePhoto(api);
+
+    const created = await api.post<{ id: number }>('/api/v1/inventory/materials', {
+      name: 'Pértiga',
+      photoObjectId: objectId,
+    });
+    expect(created.status).toBe(201);
+
+    const detail = await api.get<{ material: { photo_object_id: number | null } }>(
+      `/api/v1/inventory/materials/${created.body.data?.id ?? 0}`,
+    );
+    expect(detail.body.data?.material.photo_object_id).toBe(objectId);
+  });
+
+  it('crea tipos de material y archiva ubicaciones sin borrarlas', async () => {
+    const { api, bodegaId } = await bootstrap(1);
+
+    const type = await api.post<{ id: number }>('/api/v1/inventory/catalog/material-types', {
+      name: 'Cascos',
+    });
+    expect(type.status).toBe(201);
+
+    const catalog = await api.get<{ materialTypes: { name: string }[] }>(
+      '/api/v1/inventory/catalog',
+    );
+    expect(catalog.body.data?.materialTypes.some((entry) => entry.name === 'Cascos')).toBe(true);
+
+    const archived = await api.del(`/api/v1/inventory/catalog/locations/${bodegaId}`);
+    expect(archived.status).toBe(200);
+    expect(await countRows('locations', 'id = ? AND archived_at IS NULL', bodegaId)).toBe(0);
+    // La fila sigue existiendo: se archiva, no se borra.
+    expect(await countRows('locations', 'id = ?', bodegaId)).toBe(1);
+  });
+
+  it('exige permiso de escritura para editar un material', async () => {
+    const { api, materialId } = await bootstrap(1);
+    await seedUser('consulta', 'ContrasenaLarga123', 'viewer');
+
+    const viewer = new ApiClient();
+    const login = await viewer.login('consulta', 'ContrasenaLarga123');
+    expect(login).toBe(200);
+
+    const denied = await viewer.put(`/api/v1/inventory/materials/${materialId}`, {
+      name: 'Intento sin permiso',
+    });
+    expect(denied.status).toBe(403);
   });
 });

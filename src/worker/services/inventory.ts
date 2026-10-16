@@ -124,6 +124,8 @@ export interface CreateMaterialInput {
   notes?: string | null | undefined;
   minStock?: number | undefined;
   isIndividual?: boolean | undefined;
+  /** Foto del material (objeto privado en R2). */
+  photoObjectId?: number | null | undefined;
   /** Ingreso inicial (opcional). */
   locationId?: number | null | undefined;
   conditionCode?: ConditionCode | undefined;
@@ -178,6 +180,7 @@ export async function createMaterial(
       notes: input.notes ?? null,
       minStock: input.minStock ?? 0,
       isIndividual: input.isIndividual ?? false,
+      photoObjectId: input.photoObjectId ?? null,
     });
   } catch (error) {
     if (isUniqueViolation(error)) throw AppError.conflict('Ya existe un material con ese código.');
@@ -213,6 +216,81 @@ export async function createMaterial(
   });
 
   return { id: materialId, code };
+}
+
+export interface UpdateMaterialInput {
+  name?: string | undefined;
+  code?: string | null | undefined;
+  categoryId?: number | null | undefined;
+  materialTypeId?: number | null | undefined;
+  brand?: string | null | undefined;
+  model?: string | null | undefined;
+  notes?: string | null | undefined;
+  minStock?: number | undefined;
+  isIndividual?: boolean | undefined;
+  photoObjectId?: number | null | undefined;
+}
+
+/**
+ * Actualiza un material existente.
+ *
+ * Solo toca los campos presentes en la entrada, así que el formulario puede
+ * enviar un subconjunto sin borrar el resto. `code` vacío conserva el actual, y
+ * `photoObjectId: null` quita la foto.
+ */
+export async function updateMaterial(
+  env: { DB: D1Database },
+  materialId: number,
+  input: UpdateMaterialInput,
+  actor: Actor,
+): Promise<materials.MaterialRow> {
+  const db = env.DB;
+  const existing = await requireMaterial(db, materialId);
+
+  const update: materials.MaterialUpdate = {
+    name: input.name,
+    categoryId: input.categoryId,
+    materialTypeId: input.materialTypeId,
+    brand: input.brand,
+    model: input.model,
+    notes: input.notes,
+    minStock: input.minStock,
+    isIndividual: input.isIndividual,
+    photoObjectId: input.photoObjectId,
+  };
+
+  if (input.code !== undefined) {
+    const candidate = (input.code ?? '').trim() || existing.code;
+    if (candidate !== existing.code && (await materials.findMaterialByCode(db, candidate))) {
+      throw AppError.conflict('Ya existe un material con ese código.');
+    }
+    update.code = candidate;
+  }
+
+  try {
+    await materials.updateMaterial(db, materialId, update);
+  } catch (error) {
+    if (isUniqueViolation(error)) throw AppError.conflict('Ya existe un material con ese código.');
+    throw error;
+  }
+
+  await logAudit(db, {
+    actorUserId: actor.userId,
+    actorLabel: actor.label,
+    action: 'inventory.material_updated',
+    entityType: 'material',
+    entityId: materialId,
+    detail: {
+      fields: Object.keys(update).filter(
+        (key) => update[key as keyof materials.MaterialUpdate] !== undefined,
+      ),
+    },
+    ipHash: actor.ipHash,
+  });
+
+  const updated = await materials.findMaterialById(db, materialId);
+  if (!updated) throw AppError.internal('No se pudo releer el material actualizado.');
+  return updated;
 }
 
 // ---------------------------------------------------------------------------

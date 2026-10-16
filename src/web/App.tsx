@@ -9,6 +9,7 @@ import { PublicApp } from './pages/public/PublicApp';
 import {
   AdminLayout,
   ContentAdminPage,
+  InventoryCatalogPage,
   InventoryPage,
   MovementsPage,
   PersonDetailPage,
@@ -81,6 +82,8 @@ function AdminPanel() {
     content = <ContentAdminPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/ajustes') {
     content = <SettingsPage csrfToken={csrfToken} />;
+  } else if (currentPath === '/admin/inventario/catalogo') {
+    content = <InventoryCatalogPage csrfToken={csrfToken} />;
   } else {
     content = <InventoryPage csrfToken={csrfToken} />;
   }

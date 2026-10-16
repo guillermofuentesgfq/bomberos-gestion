@@ -12,6 +12,7 @@ export interface MaterialRow {
   notes: string | null;
   min_stock: number;
   is_individual: number;
+  photo_object_id: number | null;
   created_at: string;
   updated_at: string;
   archived_at: string | null;
@@ -37,7 +38,7 @@ export interface StockRow {
 }
 
 const MATERIAL_COLUMNS = `id, code, name, category_id, material_type_id, brand, model, notes,
-  min_stock, is_individual, created_at, updated_at, archived_at`;
+  min_stock, is_individual, photo_object_id, created_at, updated_at, archived_at`;
 
 export async function findMaterialById(db: D1Database, id: number): Promise<MaterialRow | null> {
   return first<MaterialRow>(
@@ -114,6 +115,7 @@ export interface NewMaterial {
   notes: string | null;
   minStock: number;
   isIndividual: boolean;
+  photoObjectId?: number | null | undefined;
 }
 
 export async function insertMaterial(db: D1Database, material: NewMaterial): Promise<number> {
@@ -121,8 +123,8 @@ export async function insertMaterial(db: D1Database, material: NewMaterial): Pro
   const result = await run(
     db,
     `INSERT INTO materials
-       (code, name, category_id, material_type_id, brand, model, notes, min_stock, is_individual, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (code, name, category_id, material_type_id, brand, model, notes, min_stock, is_individual, photo_object_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     material.code,
     material.name,
     material.categoryId,
@@ -132,10 +134,55 @@ export async function insertMaterial(db: D1Database, material: NewMaterial): Pro
     material.notes,
     material.minStock,
     material.isIndividual ? 1 : 0,
+    material.photoObjectId ?? null,
     now,
     now,
   );
   return Number(result.meta.last_row_id);
+}
+
+/** Cambio parcial de un material: los campos ausentes conservan su valor. */
+export interface MaterialUpdate {
+  code?: string | undefined;
+  name?: string | undefined;
+  categoryId?: number | null | undefined;
+  materialTypeId?: number | null | undefined;
+  brand?: string | null | undefined;
+  model?: string | null | undefined;
+  notes?: string | null | undefined;
+  minStock?: number | undefined;
+  isIndividual?: boolean | undefined;
+  photoObjectId?: number | null | undefined;
+}
+
+export async function updateMaterial(
+  db: D1Database,
+  id: number,
+  update: MaterialUpdate,
+): Promise<void> {
+  const assignments: string[] = [];
+  const params: unknown[] = [];
+
+  const assign = (column: string, value: unknown): void => {
+    assignments.push(`${column} = ?`);
+    params.push(value);
+  };
+
+  if (update.code !== undefined) assign('code', update.code);
+  if (update.name !== undefined) assign('name', update.name);
+  if (update.categoryId !== undefined) assign('category_id', update.categoryId);
+  if (update.materialTypeId !== undefined) assign('material_type_id', update.materialTypeId);
+  if (update.brand !== undefined) assign('brand', update.brand);
+  if (update.model !== undefined) assign('model', update.model);
+  if (update.notes !== undefined) assign('notes', update.notes);
+  if (update.minStock !== undefined) assign('min_stock', update.minStock);
+  if (update.isIndividual !== undefined) assign('is_individual', update.isIndividual ? 1 : 0);
+  if (update.photoObjectId !== undefined) assign('photo_object_id', update.photoObjectId);
+
+  assign('updated_at', nowIso());
+  params.push(id);
+
+  await run(db, `UPDATE materials SET ${assignments.join(', ')} WHERE id = ?`, ...params);
 }
 
 export async function archiveMaterial(db: D1Database, id: number): Promise<void> {

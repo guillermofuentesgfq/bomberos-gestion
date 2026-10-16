@@ -17,6 +17,7 @@ import {
   changeCondition,
   createMaterial,
   transferStock,
+  updateMaterial,
   writeOff,
 } from '../services/inventory';
 import {
@@ -83,6 +84,69 @@ inventoryRoutes.post('/catalog/categories', requireAuth, requireCsrf, requirePer
   }
 });
 
+inventoryRoutes.post(
+  '/catalog/material-types',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const body = await readJson(
+      c,
+      z.object({
+        name: z.string().trim().min(1, 'El nombre es obligatorio.').max(80),
+        categoryId: z.number().int().positive().nullable().optional(),
+      }),
+    );
+    try {
+      const id = await catalog.insertMaterialType(c.env.DB, body.name, body.categoryId ?? null);
+      return ok(c, { id }, 201);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw AppError.conflict('Ese tipo ya existe en esa categoría.');
+      }
+      throw error;
+    }
+  },
+);
+
+// El catálogo se archiva, no se borra: las existencias y los materiales que lo
+// referencian conservan su historia.
+inventoryRoutes.delete(
+  '/catalog/locations/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'ubicación');
+    await catalog.archiveCatalogEntry(c.env.DB, 'locations', id);
+    return ok(c, { archived: true });
+  },
+);
+
+inventoryRoutes.delete(
+  '/catalog/categories/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'categoría');
+    await catalog.archiveCatalogEntry(c.env.DB, 'categories', id);
+    return ok(c, { archived: true });
+  },
+);
+
+inventoryRoutes.delete(
+  '/catalog/material-types/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('institution.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'tipo de material');
+    await catalog.archiveCatalogEntry(c.env.DB, 'material_types', id);
+    return ok(c, { archived: true });
+  },
+);
+
 // --- Materiales -------------------------------------------------------------
 
 const materialFilterSchema = z.object({
@@ -108,10 +172,14 @@ inventoryRoutes.get('/materials', requireAuth, requirePermission('inventory.read
       id: m.id,
       code: m.code,
       name: m.name,
+      categoryId: m.category_id,
+      materialTypeId: m.material_type_id,
       brand: m.brand,
       model: m.model,
+      notes: m.notes,
       minStock: m.min_stock,
       isIndividual: m.is_individual === 1,
+      photoObjectId: m.photo_object_id,
       total: byId.get(m.id)?.total ?? 0,
       available: byId.get(m.id)?.available ?? 0,
       belowMinStock: (byId.get(m.id)?.total ?? 0) < m.min_stock,
@@ -129,6 +197,7 @@ const createMaterialSchema = z.object({
   notes: z.string().trim().max(2000).nullable().optional(),
   minStock: z.number().int().min(0).max(1_000_000).optional(),
   isIndividual: z.boolean().optional(),
+  photoObjectId: z.number().int().positive().nullable().optional(),
   locationId: z.number().int().positive().nullable().optional(),
   conditionCode: conditionSchema.optional(),
   quantity: z.number().int().min(0).max(1_000_000).optional(),
@@ -139,6 +208,50 @@ inventoryRoutes.post('/materials', requireAuth, requireCsrf, requirePermission('
   const created = await createMaterial({ DB: c.env.DB }, body, actorFrom(c));
   return ok(c, created, 201);
 });
+
+const updateMaterialSchema = z.object({
+  name: z.string().trim().min(1, 'El nombre es obligatorio.').max(160).optional(),
+  code: z.string().trim().max(60).nullable().optional(),
+  categoryId: z.number().int().positive().nullable().optional(),
+  materialTypeId: z.number().int().positive().nullable().optional(),
+  brand: z.string().trim().max(120).nullable().optional(),
+  model: z.string().trim().max(120).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
+  minStock: z.number().int().min(0).max(1_000_000).optional(),
+  isIndividual: z.boolean().optional(),
+  photoObjectId: z.number().int().positive().nullable().optional(),
+});
+
+inventoryRoutes.put(
+  '/materials/:id',
+  requireAuth,
+  requireCsrf,
+  requirePermission('inventory.write'),
+  async (c) => {
+    const id = parseId(c.req.param('id'), 'material');
+    const body = await readJson(c, updateMaterialSchema);
+    const updated = await updateMaterial({ DB: c.env.DB }, id, body, actorFrom(c));
+    const totals = (await materials.stockSummary(c.env.DB)).find((row) => row.material_id === id);
+    return ok(c, {
+      material: {
+        id: updated.id,
+        code: updated.code,
+        name: updated.name,
+        categoryId: updated.category_id,
+        materialTypeId: updated.material_type_id,
+        brand: updated.brand,
+        model: updated.model,
+        notes: updated.notes,
+        minStock: updated.min_stock,
+        isIndividual: updated.is_individual === 1,
+        photoObjectId: updated.photo_object_id,
+        total: totals?.total ?? 0,
+        available: totals?.available ?? 0,
+        belowMinStock: (totals?.total ?? 0) < updated.min_stock,
+      },
+    });
+  },
+);
 
 inventoryRoutes.get('/materials/:id', requireAuth, requirePermission('inventory.read'), async (c) => {
   const id = parseId(c.req.param('id'));

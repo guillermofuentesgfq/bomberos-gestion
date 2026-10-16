@@ -13,10 +13,12 @@ import { Alert } from '../components/Alert';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { PageHeader } from '../components/PageHeader';
+import { RichTextEditor } from '../components/RichTextEditor';
 import { TextField } from '../components/TextField';
 import { ApiError } from '../lib/api';
+import { toPlainText } from '../lib/richtext';
 import { errorMessage } from './adminApi';
-import { SelectField, StatusMessage, TextAreaField } from './adminFields';
+import { SelectField, StatusMessage } from './adminFields';
 import { ImageUploader } from './ImageUploader';
 import {
   addGalleryPhotos,
@@ -25,12 +27,19 @@ import {
   createActivity,
   createGallery,
   deleteGalleryPhoto,
+  fetchActivityDetail,
   fetchContentList,
   fetchGalleryDetail,
+  fetchNewsDetail,
+  fetchPageDetail,
   reorderGalleryPhotos,
   transitionContent,
+  updateActivity,
   updateActivityCover,
+  updateGallery,
+  updateNews,
   updateNewsCover,
+  updatePage,
   updatePageCover,
   type ContentItem,
   type ContentKind,
@@ -104,6 +113,14 @@ async function saveCover(
   }
 }
 
+/**
+ * Devuelve el HTML recortado, o `null` si no tiene texto visible (por ejemplo
+ * `<br>` o un contenedor vacío), para no guardar cuerpos sin contenido.
+ */
+function htmlOrNull(html: string): string | null {
+  return toPlainText(html) ? html.trim() : null;
+}
+
 export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
   const [kind, setKind] = useState<ContentKind>('news');
   const [items, setItems] = useState<ContentItem[] | null>(null);
@@ -128,6 +145,19 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
   const [coverDraft, setCoverDraft] = useState<number | null>(null);
   const [coverSaving, setCoverSaving] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
+
+  // Edición en línea del contenido existente.
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editSummary, setEditSummary] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const [editStartsAt, setEditStartsAt] = useState('');
+  const [editEndsAt, setEditEndsAt] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const editRequestId = useRef(0);
 
   // Gestión de las fotos de una galería.
   const [selectedGalleryId, setSelectedGalleryId] = useState<number | null>(null);
@@ -154,6 +184,11 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
     setError(null);
     setCoverEditId(null);
     setCoverError(null);
+    editRequestId.current += 1;
+    setEditId(null);
+    setEditLoading(false);
+    setEditSaving(false);
+    setEditError(null);
 
     fetchContentList(kind, null, controller.signal)
       .then(setItems)
@@ -244,8 +279,8 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
     setNotice(null);
 
     const cleanTitle = title.trim();
-    const subtitle = summary.trim() || null;
-    const bodyText = body.trim() || null;
+    const subtitle = htmlOrNull(summary);
+    const bodyText = htmlOrNull(body);
 
     try {
       let created: { id: number; slug: string };
@@ -304,6 +339,10 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
       setCoverError(null);
       return;
     }
+    // Cierra el panel de edición para no tener dos abiertos a la vez.
+    editRequestId.current += 1;
+    setEditId(null);
+    setEditError(null);
     setCoverEditId(item.id);
     setCoverDraft(coverValue(item, kind));
     setCoverError(null);
@@ -323,6 +362,152 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
       setCoverError(errorMessage(cause));
     } finally {
       setCoverSaving(false);
+    }
+  }
+
+  function closeEditEditor() {
+    editRequestId.current += 1;
+    setEditId(null);
+    setEditLoading(false);
+    setEditError(null);
+  }
+
+  /**
+   * Abre el panel de edición de una fila y carga su detalle completo. El
+   * `editRequestId` descarta respuestas que lleguen tarde si se cierra el panel,
+   * se cambia de fila o se cambia de pestaña mientras la petición está en vuelo.
+   */
+  async function openEditEditor(item: ContentItem) {
+    if (editId === item.id) {
+      closeEditEditor();
+      return;
+    }
+
+    // Cierra el editor de portada para no solapar paneles.
+    setCoverEditId(null);
+    setCoverError(null);
+
+    const token = editRequestId.current + 1;
+    editRequestId.current = token;
+    setEditId(item.id);
+    setEditError(null);
+    setEditLoading(true);
+    setEditTitle(item.title);
+    setEditSummary('');
+    setEditBody('');
+    setEditStartsAt('');
+    setEditEndsAt('');
+    setEditLocation('');
+
+    try {
+      switch (kind) {
+        case 'pages': {
+          const detail = await fetchPageDetail(item.id, csrfToken);
+          if (editRequestId.current !== token) return;
+          setEditTitle(detail.title);
+          setEditSummary(detail.excerpt ?? '');
+          setEditBody(detail.body ?? '');
+          break;
+        }
+        case 'news': {
+          const detail = await fetchNewsDetail(item.id, csrfToken);
+          if (editRequestId.current !== token) return;
+          setEditTitle(detail.title);
+          setEditSummary(detail.summary ?? '');
+          setEditBody(detail.body ?? '');
+          break;
+        }
+        case 'activities': {
+          const detail = await fetchActivityDetail(item.id, csrfToken);
+          if (editRequestId.current !== token) return;
+          setEditTitle(detail.title);
+          setEditSummary(detail.summary ?? '');
+          setEditBody(detail.body ?? '');
+          setEditStartsAt(detail.startsAt ?? '');
+          setEditEndsAt(detail.endsAt ?? '');
+          setEditLocation(detail.locationText ?? '');
+          break;
+        }
+        case 'galleries': {
+          const detail = await fetchGalleryDetail(item.id, csrfToken);
+          if (editRequestId.current !== token) return;
+          setEditTitle(detail.gallery.title);
+          setEditSummary(detail.gallery.description ?? '');
+          break;
+        }
+      }
+    } catch (cause) {
+      if (editRequestId.current !== token) return;
+      setEditError(errorMessage(cause));
+    } finally {
+      if (editRequestId.current === token) setEditLoading(false);
+    }
+  }
+
+  async function handleSaveEdit(item: ContentItem) {
+    if (editSaving || editId !== item.id) return;
+    const cleanTitle = editTitle.trim();
+    if (cleanTitle.length === 0) {
+      setEditError('El título es obligatorio.');
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError(null);
+    setNotice(null);
+    try {
+      switch (kind) {
+        case 'pages':
+          await updatePage(
+            item.id,
+            {
+              title: cleanTitle,
+              excerpt: htmlOrNull(editSummary),
+              body: htmlOrNull(editBody),
+            },
+            csrfToken,
+          );
+          break;
+        case 'news':
+          await updateNews(
+            item.id,
+            {
+              title: cleanTitle,
+              summary: htmlOrNull(editSummary),
+              body: htmlOrNull(editBody),
+            },
+            csrfToken,
+          );
+          break;
+        case 'activities':
+          await updateActivity(
+            item.id,
+            {
+              title: cleanTitle,
+              summary: htmlOrNull(editSummary),
+              body: htmlOrNull(editBody),
+              startsAt: editStartsAt.trim() || null,
+              endsAt: editEndsAt.trim() || null,
+              locationText: editLocation.trim() || null,
+            },
+            csrfToken,
+          );
+          break;
+        case 'galleries':
+          await updateGallery(
+            item.id,
+            { title: cleanTitle, description: htmlOrNull(editSummary) },
+            csrfToken,
+          );
+          break;
+      }
+      closeEditEditor();
+      setNotice(`«${cleanTitle}» se actualizó correctamente.`);
+      reload();
+    } catch (cause) {
+      setEditError(errorMessage(cause));
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -421,6 +606,9 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
               setKind(entry.kind);
               setCoverEditId(null);
               setCoverError(null);
+              editRequestId.current += 1;
+              setEditId(null);
+              setEditError(null);
             }}
             className={
               entry.kind === kind
@@ -537,6 +725,15 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
                               {kind === 'pages' ? 'Imagen principal' : 'Portada'}
                             </Button>
                           ) : null}
+                          <Button
+                            variant="secondary"
+                            className="min-h-9 px-3 py-1 text-sm"
+                            aria-expanded={editId === item.id}
+                            aria-label={`Editar ${active?.singular ?? 'elemento'} ${item.title}`}
+                            onClick={() => void openEditEditor(item)}
+                          >
+                            Editar
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -567,6 +764,103 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
                                   setCoverEditId(null);
                                   setCoverError(null);
                                 }}
+                              >
+                                Cancelar
+                              </Button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                    {editId === item.id ? (
+                      <tr className="border-b border-line/60 bg-muted">
+                        <td colSpan={4} className="px-3 py-4">
+                          <div className="flex max-w-3xl flex-col gap-5">
+                            <h3 className="text-lg font-bold text-ink">
+                              Editar «{item.title}»
+                            </h3>
+
+                            {editError ? (
+                              <Alert tone="error" title="No se pudieron guardar los cambios">
+                                {editError}
+                              </Alert>
+                            ) : null}
+
+                            {editLoading ? (
+                              <StatusMessage busy>Cargando contenido…</StatusMessage>
+                            ) : null}
+
+                            <TextField
+                              id={`edit-title-${item.id}`}
+                              label="Título"
+                              required
+                              value={editTitle}
+                              onChange={(event) => setEditTitle(event.target.value)}
+                            />
+
+                            {kind === 'galleries' ? (
+                              <RichTextEditor
+                                id={`edit-body-${item.id}`}
+                                label="Descripción"
+                                value={editSummary}
+                                onChange={setEditSummary}
+                              />
+                            ) : (
+                              <>
+                                <RichTextEditor
+                                  id={`edit-summary-${item.id}`}
+                                  label="Resumen"
+                                  hint="Una o dos frases para el listado."
+                                  inline
+                                  value={editSummary}
+                                  onChange={setEditSummary}
+                                />
+                                <RichTextEditor
+                                  id={`edit-body-${item.id}`}
+                                  label="Cuerpo"
+                                  value={editBody}
+                                  onChange={setEditBody}
+                                />
+                              </>
+                            )}
+
+                            {kind === 'activities' ? (
+                              <div className="grid gap-5 md:grid-cols-3">
+                                <TextField
+                                  id={`edit-starts-${item.id}`}
+                                  type="date"
+                                  label="Comienza"
+                                  value={editStartsAt}
+                                  onChange={(event) => setEditStartsAt(event.target.value)}
+                                />
+                                <TextField
+                                  id={`edit-ends-${item.id}`}
+                                  type="date"
+                                  label="Termina"
+                                  value={editEndsAt}
+                                  onChange={(event) => setEditEndsAt(event.target.value)}
+                                />
+                                <TextField
+                                  id={`edit-location-${item.id}`}
+                                  label="Lugar"
+                                  value={editLocation}
+                                  onChange={(event) => setEditLocation(event.target.value)}
+                                />
+                              </div>
+                            ) : null}
+
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                loading={editSaving}
+                                disabled={editLoading}
+                                onClick={() => void handleSaveEdit(item)}
+                              >
+                                {editSaving ? 'Guardando…' : 'Guardar cambios'}
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                disabled={editSaving}
+                                onClick={closeEditEditor}
                               >
                                 Cancelar
                               </Button>
@@ -788,30 +1082,29 @@ export function ContentAdminPage({ csrfToken }: { csrfToken: string }) {
           />
 
           {kind === 'galleries' ? (
-            <TextAreaField
+            <RichTextEditor
               id="create-subtitle"
               label="Descripción"
-              rows={3}
               value={summary}
-              onChange={(event) => setSummary(event.target.value)}
+              onChange={setSummary}
             />
           ) : (
-            <TextField
+            <RichTextEditor
               id="create-subtitle"
               label="Resumen"
               hint="Una o dos frases para el listado."
+              inline
               value={summary}
-              onChange={(event) => setSummary(event.target.value)}
+              onChange={setSummary}
             />
           )}
 
           {kind === 'galleries' ? null : (
-            <TextAreaField
+            <RichTextEditor
               id="create-body"
               label="Cuerpo"
-              rows={6}
               value={body}
-              onChange={(event) => setBody(event.target.value)}
+              onChange={setBody}
             />
           )}
 

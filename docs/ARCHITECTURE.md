@@ -89,6 +89,21 @@ por el Worker, que comprueba sesión y permiso. Solo los objetos marcados
 explícitamente como públicos (`storage_objects.is_public = 1`) se sirven sin
 autenticación, y solo para el sitio institucional.
 
+### Texto enriquecido y XSS
+
+El contenido del sitio (cuerpos y resúmenes de páginas, noticias, actividades y
+descripciones de galerías) se escribe con un editor visual y se guarda como
+HTML. Ese HTML se inserta después en el documento del sitio público, así que es
+un vector de XSS almacenado.
+
+La defensa es una **lista blanca aplicada en el servidor, al guardar**
+(`src/worker/lib/richtext.ts`): se aceptan solo unas pocas etiquetas de
+formato, el único atributo permitido es `href` en `a` y solo con esquemas
+seguros. Todo lo demás se descarta; el texto siempre se conserva escapado. El
+saneado **no** ocurre en el cliente: un editor comprometido no puede saltárselo,
+porque lo que llega a la base ya está limpio y es lo que sirve la API pública.
+Se complementa con la política de seguridad de contenido del Worker.
+
 ### Límites del plan gratuito
 
 El diseño respeta las cuotas gratuitas (verificadas en octubre de 2026):

@@ -1,9 +1,10 @@
 /**
  * Ajustes de la instalación.
  *
- * Tres bloques: catálogo del inventario (ubicaciones y categorías), contenido
- * de la portada (datos institucionales y SEO) y secciones de la portada
- * (activar, desactivar y ordenar).
+ * Dos bloques: secciones de la portada (activar, desactivar y ordenar) e
+ * información institucional de la portada y SEO. El catálogo del inventario
+ * (ubicaciones, categorías y tipos de material) vive ahora en su propia
+ * sub-sección de Inventario.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -17,16 +18,12 @@ import { errorMessage } from './adminApi';
 import { CheckboxField, StatusMessage, TextAreaField } from './adminFields';
 import { ImageUploader } from './ImageUploader';
 import {
-  createCategory,
-  createLocation,
-  fetchCatalog,
   fetchInstitutionSettings,
   fetchSections,
   reorderSections,
   updateInstitution,
   updateSection,
   updateSeo,
-  type CatalogOption,
   type InstitutionConfig,
   type SeoConfig,
   type SiteSection,
@@ -81,8 +78,6 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
 
-  const [locations, setLocations] = useState<CatalogOption[]>([]);
-  const [categories, setCategories] = useState<CatalogOption[]>([]);
   const [sections, setSections] = useState<SiteSection[]>([]);
   const [institution, setInstitution] = useState<InstitutionConfig | null>(null);
   const [seo, setSeo] = useState<SeoConfig | null>(null);
@@ -96,9 +91,6 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
   const [notice, setNotice] = useState<React.ReactNode>(null);
   const [blockError, setBlockError] = useState<string | null>(null);
 
-  const [newLocation, setNewLocation] = useState('');
-  const [newCategory, setNewCategory] = useState('');
-
   const reload = useCallback(() => setReloadToken((token) => token + 1), []);
 
   useEffect(() => {
@@ -106,8 +98,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
     setLoading(true);
     setLoadError(null);
 
-    Promise.all([fetchInstitutionSettings(), fetchSections(), fetchCatalog()])
-      .then(([settings, siteSections, catalog]) => {
+    Promise.all([fetchInstitutionSettings(), fetchSections()])
+      .then(([settings, siteSections]) => {
         if (cancelled) return;
         setInstitution(settings.institution);
         setSeo(settings.seo);
@@ -116,8 +108,6 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
         setSpecialties(listToLines(settings.institution.specialties));
         setSocials(socialsToText(settings.institution.socials));
         setSections([...siteSections].sort((a, b) => a.sortOrder - b.sortOrder));
-        setLocations(catalog.locations);
-        setCategories(catalog.categories);
       })
       .catch((cause: unknown) => {
         if (!cancelled) setLoadError(errorMessage(cause));
@@ -202,52 +192,6 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
     }
   }
 
-  async function handleAddLocation(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = newLocation.trim();
-    if (!name || busy) return;
-    setBusy('location');
-    setBlockError(null);
-    setNotice(null);
-    try {
-      await createLocation(name, null, csrfToken);
-      setNewLocation('');
-      setNotice(`Ubicación «${name}» agregada.`);
-      reload();
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.code === 'conflict') {
-        setBlockError('Esa ubicación ya existe.');
-      } else {
-        setBlockError(errorMessage(cause));
-      }
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function handleAddCategory(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const name = newCategory.trim();
-    if (!name || busy) return;
-    setBusy('category');
-    setBlockError(null);
-    setNotice(null);
-    try {
-      await createCategory(name, csrfToken);
-      setNewCategory('');
-      setNotice(`Categoría «${name}» agregada.`);
-      reload();
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.code === 'conflict') {
-        setBlockError('Esa categoría ya existe.');
-      } else {
-        setBlockError(errorMessage(cause));
-      }
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function toggleSection(section: SiteSection): Promise<void> {
     if (busy) return;
     setBusy(`section-${section.key}`);
@@ -327,79 +271,11 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Ajustes"
-        description="Ubicaciones y categorías del inventario, datos institucionales de la portada y secciones visibles."
+        description="Información institucional de la portada, secciones visibles y buscadores."
       />
 
       {notice ? <Alert tone="success">{notice}</Alert> : null}
       {blockError ? <Alert tone="error" title="No se pudo completar">{blockError}</Alert> : null}
-
-      <Card className="flex flex-col gap-5">
-        <h2 className="text-xl font-bold text-ink">Catálogo del inventario</h2>
-        <p className="text-base text-ink-muted">
-          Sin ubicaciones no se puede registrar ni mover material: créalas antes de cargar el
-          inventario.
-        </p>
-
-        <div className="grid gap-6 md:grid-cols-2">
-          <section className="flex flex-col gap-3">
-            <h3 className="text-base font-bold text-ink">Ubicaciones</h3>
-            {locations.length === 0 ? (
-              <StatusMessage>Todavía no hay ubicaciones.</StatusMessage>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {locations.map((location) => (
-                  <li key={location.id} className="rounded-md border border-line px-3 py-2 text-base text-ink">
-                    {location.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form className="flex flex-col gap-3" onSubmit={handleAddLocation} noValidate>
-              <TextField
-                id="new-location"
-                label="Nueva ubicación"
-                hint="Por ejemplo: Bodega, Sala de estar, BX-2, Taller."
-                value={newLocation}
-                onChange={(event) => setNewLocation(event.target.value)}
-              />
-              <div>
-                <Button type="submit" loading={busy === 'location'}>
-                  Agregar ubicación
-                </Button>
-              </div>
-            </form>
-          </section>
-
-          <section className="flex flex-col gap-3">
-            <h3 className="text-base font-bold text-ink">Categorías</h3>
-            {categories.length === 0 ? (
-              <StatusMessage>Todavía no hay categorías.</StatusMessage>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {categories.map((category) => (
-                  <li key={category.id} className="rounded-md border border-line px-3 py-2 text-base text-ink">
-                    {category.name}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <form className="flex flex-col gap-3" onSubmit={handleAddCategory} noValidate>
-              <TextField
-                id="new-category"
-                label="Nueva categoría"
-                hint="Por ejemplo: EPP, Extinción, Rescate."
-                value={newCategory}
-                onChange={(event) => setNewCategory(event.target.value)}
-              />
-              <div>
-                <Button type="submit" loading={busy === 'category'}>
-                  Agregar categoría
-                </Button>
-              </div>
-            </form>
-          </section>
-        </div>
-      </Card>
 
       <Card className="flex flex-col gap-5">
         <h2 className="text-xl font-bold text-ink">Secciones de la portada</h2>

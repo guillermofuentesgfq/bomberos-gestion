@@ -20,6 +20,7 @@ import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
 import { CheckboxField, SelectField, StatusMessage, TextAreaField } from './adminFields';
 import type { SelectOption } from './adminFields';
+import { ImageUploader } from './ImageUploader';
 import { useForm } from './useForm';
 import {
   createMaterial,
@@ -29,12 +30,15 @@ import {
   fetchInventoryCatalog,
   fetchMaterialDetail,
   fetchMaterials,
+  updateMaterial,
 } from './adminApi';
 import type {
   CreateMaterialInput,
   InventoryCatalog,
   MaterialDetail,
+  MaterialRow,
   MaterialSummary,
+  UpdateMaterialInput,
 } from './adminApi';
 
 // ---------------------------------------------------------------------------
@@ -52,6 +56,14 @@ function toInt(value: string): number | null {
 
 function locationOptions(catalog: InventoryCatalog): SelectOption[] {
   return catalog.locations.map((location) => ({ value: String(location.id), label: location.name }));
+}
+
+function categoryOptions(catalog: InventoryCatalog): SelectOption[] {
+  return catalog.categories.map((category) => ({ value: String(category.id), label: category.name }));
+}
+
+function materialTypeOptions(catalog: InventoryCatalog): SelectOption[] {
+  return catalog.materialTypes.map((type) => ({ value: String(type.id), label: type.name }));
 }
 
 function conditionOptions(catalog: InventoryCatalog): SelectOption[] {
@@ -90,6 +102,7 @@ interface MaterialFormValues {
   conditionCode: string;
   quantity: string;
   notes: string;
+  photoObjectId: number | null;
 }
 
 const EMPTY_MATERIAL_FORM: MaterialFormValues = {
@@ -105,6 +118,7 @@ const EMPTY_MATERIAL_FORM: MaterialFormValues = {
   conditionCode: 'operativo',
   quantity: '',
   notes: '',
+  photoObjectId: null,
 };
 
 function MaterialCreateForm({
@@ -119,15 +133,6 @@ function MaterialCreateForm({
   onCancel: () => void;
 }) {
   const form = useForm<MaterialFormValues>(EMPTY_MATERIAL_FORM);
-
-  const categories = catalog.categories.map((category) => ({
-    value: String(category.id),
-    label: category.name,
-  }));
-  const types = catalog.materialTypes.map((type) => ({
-    value: String(type.id),
-    label: type.name,
-  }));
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -159,6 +164,7 @@ function MaterialCreateForm({
     const minStock = toInt(form.values.minStock);
     if (minStock !== null && minStock >= 0) input.minStock = minStock;
     if (form.values.isIndividual) input.isIndividual = true;
+    if (form.values.photoObjectId !== null) input.photoObjectId = form.values.photoObjectId;
     if (locationId !== null) input.locationId = locationId;
     if (locationId !== null && quantity !== null && quantity > 0) {
       input.conditionCode = form.values.conditionCode;
@@ -168,9 +174,11 @@ function MaterialCreateForm({
     form.setSubmitting(true);
     form.setFieldErrors({});
     try {
+      // La foto viaja en la misma petición: el alta la admite.
       const created = await createMaterial(csrfToken, input);
+      const message = `Material «${created.code}» — ${name} creado correctamente.`;
       form.reset(EMPTY_MATERIAL_FORM);
-      onCreated(`Material «${created.code}» — ${name} creado correctamente.`);
+      onCreated(message);
     } catch (error) {
       form.applyError(error);
     } finally {
@@ -210,14 +218,14 @@ function MaterialCreateForm({
           />
           <SelectField
             label="Categoría"
-            options={categories}
+            options={categoryOptions(catalog)}
             placeholder="Sin categoría"
             value={form.values.categoryId}
             onChange={(event) => form.patch({ categoryId: event.target.value })}
           />
           <SelectField
             label="Tipo de material"
-            options={types}
+            options={materialTypeOptions(catalog)}
             placeholder="Sin tipo"
             value={form.values.materialTypeId}
             onChange={(event) => form.patch({ materialTypeId: event.target.value })}
@@ -282,6 +290,15 @@ function MaterialCreateForm({
           onChange={(event) => form.patch({ isIndividual: event.target.checked })}
         />
 
+        <ImageUploader
+          csrfToken={csrfToken}
+          label="Foto del material"
+          hint="Opcional. Se guarda de forma privada y solo se ve en el panel."
+          value={form.values.photoObjectId}
+          onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+          isPublic={false}
+        />
+
         <div className="flex flex-wrap gap-3">
           <Button type="submit" loading={form.submitting}>
             {form.submitting ? 'Guardando…' : 'Crear material'}
@@ -292,6 +309,189 @@ function MaterialCreateForm({
         </div>
       </form>
     </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Edición de material
+// ---------------------------------------------------------------------------
+
+interface MaterialEditValues {
+  name: string;
+  code: string;
+  categoryId: string;
+  materialTypeId: string;
+  brand: string;
+  model: string;
+  notes: string;
+  minStock: string;
+  isIndividual: boolean;
+  photoObjectId: number | null;
+}
+
+function MaterialEditForm({
+  csrfToken,
+  material,
+  catalog,
+  onSaved,
+}: {
+  csrfToken: string;
+  material: MaterialRow;
+  catalog: InventoryCatalog;
+  onSaved: (material: MaterialSummary, message: string) => void;
+}) {
+  const form = useForm<MaterialEditValues>({
+    name: material.name,
+    code: material.code,
+    categoryId: material.category_id !== null ? String(material.category_id) : '',
+    materialTypeId: material.material_type_id !== null ? String(material.material_type_id) : '',
+    brand: material.brand ?? '',
+    model: material.model ?? '',
+    notes: material.notes ?? '',
+    minStock: String(material.min_stock),
+    isIndividual: material.is_individual === 1,
+    photoObjectId: material.photo_object_id,
+  });
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (form.submitting) return;
+
+    const name = form.values.name.trim();
+    const minStock = toInt(form.values.minStock);
+
+    const errors: Record<string, string> = {};
+    if (!name) errors.name = 'Ingresa el nombre del material.';
+    if (minStock === null || minStock < 0) {
+      errors.minStock = 'Indica un stock mínimo de cero o más.';
+    }
+    if (Object.keys(errors).length > 0 || minStock === null) {
+      form.setFieldErrors(errors);
+      return;
+    }
+
+    // Los campos vacíos se envían como `null` para limpiarlos; los que no
+    // admiten nulos (nombre, stock mínimo) siempre viajan con su valor.
+    const input: UpdateMaterialInput = {
+      name,
+      categoryId: form.values.categoryId ? Number(form.values.categoryId) : null,
+      materialTypeId: form.values.materialTypeId ? Number(form.values.materialTypeId) : null,
+      brand: form.values.brand.trim() || null,
+      model: form.values.model.trim() || null,
+      notes: form.values.notes.trim() || null,
+      minStock,
+      isIndividual: form.values.isIndividual,
+      photoObjectId: form.values.photoObjectId,
+    };
+    const code = form.values.code.trim();
+    if (code) input.code = code;
+
+    form.setSubmitting(true);
+    form.setFieldErrors({});
+    try {
+      const result = await updateMaterial(material.id, input, csrfToken);
+      onSaved(result.material, `Material «${result.material.code}» actualizado correctamente.`);
+    } catch (error) {
+      form.applyError(error);
+    } finally {
+      form.setSubmitting(false);
+    }
+  }
+
+  return (
+    <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+      <h3 className="text-lg font-bold text-ink">Datos del material</h3>
+
+      {form.generalError ? (
+        <div ref={form.errorRef} tabIndex={-1}>
+          <Alert tone="error" title="No se pudo guardar el material">
+            {form.generalError}
+          </Alert>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField
+          label="Nombre"
+          required
+          value={form.values.name}
+          error={form.fieldErrors.name}
+          onChange={(event) => form.patch({ name: event.target.value })}
+        />
+        <TextField
+          label="Código"
+          hint="Opcional. Se conserva el actual si lo dejas vacío."
+          value={form.values.code}
+          error={form.fieldErrors.code}
+          autoCapitalize="characters"
+          spellCheck={false}
+          onChange={(event) => form.patch({ code: event.target.value })}
+        />
+        <SelectField
+          label="Categoría"
+          options={categoryOptions(catalog)}
+          placeholder="Sin categoría"
+          value={form.values.categoryId}
+          onChange={(event) => form.patch({ categoryId: event.target.value })}
+        />
+        <SelectField
+          label="Tipo de material"
+          options={materialTypeOptions(catalog)}
+          placeholder="Sin tipo"
+          value={form.values.materialTypeId}
+          onChange={(event) => form.patch({ materialTypeId: event.target.value })}
+        />
+        <TextField
+          label="Marca"
+          value={form.values.brand}
+          onChange={(event) => form.patch({ brand: event.target.value })}
+        />
+        <TextField
+          label="Modelo"
+          value={form.values.model}
+          onChange={(event) => form.patch({ model: event.target.value })}
+        />
+        <TextField
+          label="Stock mínimo"
+          type="number"
+          min="0"
+          inputMode="numeric"
+          hint="Umbral para avisar stock bajo."
+          value={form.values.minStock}
+          error={form.fieldErrors.minStock}
+          onChange={(event) => form.patch({ minStock: event.target.value })}
+        />
+      </div>
+
+      <TextAreaField
+        label="Notas"
+        hint="Opcional. Observaciones internas del material."
+        value={form.values.notes}
+        onChange={(event) => form.patch({ notes: event.target.value })}
+      />
+
+      <CheckboxField
+        label="Es un material individual (por unidad)"
+        hint="Marca si cada unidad tiene serie o talla propia."
+        checked={form.values.isIndividual}
+        onChange={(event) => form.patch({ isIndividual: event.target.checked })}
+      />
+
+      <ImageUploader
+        csrfToken={csrfToken}
+        label="Foto del material"
+        hint="Se guarda de forma privada y solo se ve en el panel."
+        value={form.values.photoObjectId}
+        onChange={(objectId) => form.patch({ photoObjectId: objectId })}
+        isPublic={false}
+      />
+
+      <div className="flex flex-wrap gap-3">
+        <Button type="submit" loading={form.submitting}>
+          {form.submitting ? 'Guardando…' : 'Guardar cambios'}
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -595,13 +795,26 @@ function WriteOffForm({
 function MaterialDetailPanel({
   materialId,
   catalog,
+  csrfToken,
+  onSaved,
 }: {
   materialId: number;
   catalog: InventoryCatalog;
+  csrfToken: string;
+  onSaved: (material: MaterialSummary, message: string) => void;
 }) {
+  const [reloadToken, setReloadToken] = useState(0);
   const state = useAsync<MaterialDetail>(
     (signal) => fetchMaterialDetail(materialId, signal),
-    [materialId],
+    [materialId, reloadToken],
+  );
+
+  const handleSaved = useCallback(
+    (updated: MaterialSummary, message: string) => {
+      setReloadToken((value) => value + 1);
+      onSaved(updated, message);
+    },
+    [onSaved],
   );
 
   if (state.status === 'loading') {
@@ -624,24 +837,13 @@ function MaterialDetailPanel({
 
   return (
     <div className="flex flex-col gap-6">
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        <div className="flex flex-col">
-          <dt className="text-sm font-semibold text-ink-muted">Código</dt>
-          <dd className="text-base text-ink">{material.code}</dd>
-        </div>
-        <div className="flex flex-col">
-          <dt className="text-sm font-semibold text-ink-muted">Marca</dt>
-          <dd className="text-base text-ink">{material.brand ?? '—'}</dd>
-        </div>
-        <div className="flex flex-col">
-          <dt className="text-sm font-semibold text-ink-muted">Modelo</dt>
-          <dd className="text-base text-ink">{material.model ?? '—'}</dd>
-        </div>
-        <div className="flex flex-col">
-          <dt className="text-sm font-semibold text-ink-muted">Stock mínimo</dt>
-          <dd className="text-base tabular-nums text-ink">{material.min_stock}</dd>
-        </div>
-      </dl>
+      <MaterialEditForm
+        key={`${material.id}-${material.updated_at}`}
+        csrfToken={csrfToken}
+        material={material}
+        catalog={catalog}
+        onSaved={handleSaved}
+      />
 
       <section aria-labelledby="detalle-existencias" className="flex flex-col gap-2">
         <h3 id="detalle-existencias" className="text-lg font-bold text-ink">
@@ -812,6 +1014,18 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
     [reload],
   );
 
+  // Al editar desde el detalle se conserva el panel abierto: se refresca la
+  // ficha, se actualiza el encabezado con los datos nuevos y se recarga el
+  // listado para reflejar los cambios.
+  const handleMaterialSaved = useCallback(
+    (material: MaterialSummary, message: string) => {
+      setNotice(message);
+      setPanel({ kind: 'detail', material });
+      reload();
+    },
+    [reload],
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -840,10 +1054,10 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
 
       {catalog && catalog.locations.length === 0 ? (
         <Alert tone="warning" title="Primero crea al menos una ubicación">
-          Para registrar material hay que indicar dónde está. Agrega las ubicaciones y
-          categorías de tu institución en{' '}
-          <Link to="/admin/ajustes" className="font-semibold underline underline-offset-2">
-            Ajustes
+          Para registrar material hay que indicar dónde está. Agrega las ubicaciones, categorías
+          y tipos de material de tu institución en{' '}
+          <Link to="/admin/inventario/catalogo" className="font-semibold underline underline-offset-2">
+            Catálogo del inventario
           </Link>
           .
         </Alert>
@@ -965,7 +1179,18 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
                     <td className="px-3 py-2 font-semibold tabular-nums text-ink">
                       {material.code}
                     </td>
-                    <td className="px-3 py-2 text-ink">{material.name}</td>
+                    <td className="px-3 py-2 text-ink">
+                      <span className="flex items-center gap-3">
+                        {material.photoObjectId !== null ? (
+                          <img
+                            src={`/api/v1/files/${material.photoObjectId}`}
+                            alt={`Foto de ${material.name}`}
+                            className="h-10 w-10 shrink-0 rounded-md border border-line object-cover"
+                          />
+                        ) : null}
+                        <span>{material.name}</span>
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-ink-muted">{brandModel(material)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-ink">{material.total}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-ink">
@@ -1057,7 +1282,12 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
               ) : null}
 
               {panel.kind === 'detail' ? (
-                <MaterialDetailPanel materialId={panel.material.id} catalog={catalog ?? emptyCatalog} />
+                <MaterialDetailPanel
+                  materialId={panel.material.id}
+                  catalog={catalog ?? emptyCatalog}
+                  csrfToken={csrfToken}
+                  onSaved={handleMaterialSaved}
+                />
               ) : null}
             </div>
           </Card>

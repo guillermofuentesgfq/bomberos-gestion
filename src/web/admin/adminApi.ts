@@ -185,6 +185,47 @@ export function fetchInventoryCatalog(signal?: AbortSignal): Promise<InventoryCa
   return request<InventoryCatalog>(`${BASE}/inventory/catalog`, { signal });
 }
 
+export interface CreateMaterialTypeInput {
+  name: string;
+  categoryId?: number | null | undefined;
+}
+
+/** `POST /inventory/catalog/material-types`. */
+export function createMaterialType(
+  input: CreateMaterialTypeInput,
+  csrfToken: string,
+): Promise<{ id: number }> {
+  return request<{ id: number }>(`${BASE}/inventory/catalog/material-types`, {
+    method: 'POST',
+    csrfToken,
+    body: input,
+  });
+}
+
+/** `DELETE /inventory/catalog/locations/:id`. */
+export function archiveLocation(id: number, csrfToken: string): Promise<{ archived: true }> {
+  return request<{ archived: true }>(`${BASE}/inventory/catalog/locations/${id}`, {
+    method: 'DELETE',
+    csrfToken,
+  });
+}
+
+/** `DELETE /inventory/catalog/categories/:id`. */
+export function archiveCategory(id: number, csrfToken: string): Promise<{ archived: true }> {
+  return request<{ archived: true }>(`${BASE}/inventory/catalog/categories/${id}`, {
+    method: 'DELETE',
+    csrfToken,
+  });
+}
+
+/** `DELETE /inventory/catalog/material-types/:id`. */
+export function archiveMaterialType(id: number, csrfToken: string): Promise<{ archived: true }> {
+  return request<{ archived: true }>(`${BASE}/inventory/catalog/material-types/${id}`, {
+    method: 'DELETE',
+    csrfToken,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Materiales
 // ---------------------------------------------------------------------------
@@ -200,6 +241,8 @@ export interface MaterialSummary {
   total: number;
   available: number;
   belowMinStock: boolean;
+  /** Objeto de almacenamiento de la foto (privada), o null si no tiene. */
+  photoObjectId: number | null;
 }
 
 export interface MaterialRow {
@@ -216,6 +259,7 @@ export interface MaterialRow {
   created_at: string;
   updated_at: string;
   archived_at: string | null;
+  photo_object_id: number | null;
 }
 
 export interface StockLevel {
@@ -290,6 +334,7 @@ export interface CreateMaterialInput {
   notes?: string | null | undefined;
   minStock?: number | undefined;
   isIndividual?: boolean | undefined;
+  photoObjectId?: number | null | undefined;
   locationId?: number | null | undefined;
   conditionCode?: string | undefined;
   quantity?: number | undefined;
@@ -310,6 +355,37 @@ export function createMaterial(
 /** `GET /inventory/materials/:id`. */
 export function fetchMaterialDetail(id: number, signal?: AbortSignal): Promise<MaterialDetail> {
   return request<MaterialDetail>(`${BASE}/inventory/materials/${id}`, { signal });
+}
+
+export interface UpdateMaterialInput {
+  name?: string | undefined;
+  code?: string | null | undefined;
+  categoryId?: number | null | undefined;
+  materialTypeId?: number | null | undefined;
+  brand?: string | null | undefined;
+  model?: string | null | undefined;
+  notes?: string | null | undefined;
+  minStock?: number | undefined;
+  isIndividual?: boolean | undefined;
+  photoObjectId?: number | null | undefined;
+}
+
+/**
+ * `PUT /inventory/materials/:id`.
+ *
+ * Los campos omitidos conservan su valor; los `null` limpian los que admiten
+ * nulos. La respuesta usa el mismo DTO que el listado (`MaterialSummary`).
+ */
+export function updateMaterial(
+  id: number,
+  input: UpdateMaterialInput,
+  csrfToken: string,
+): Promise<{ material: MaterialSummary }> {
+  return request<{ material: MaterialSummary }>(`${BASE}/inventory/materials/${id}`, {
+    method: 'PUT',
+    csrfToken,
+    body: input,
+  });
 }
 
 export interface AddStockInput {

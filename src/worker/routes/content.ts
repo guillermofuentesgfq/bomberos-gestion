@@ -4,6 +4,7 @@ import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { ok } from '../lib/http';
 import { readJson } from '../lib/validate';
+import { sanitizeRichText } from '../lib/richtext';
 import { requireAuth, requireCsrf, requirePermission } from '../security/middleware';
 import { actorFrom } from '../security/actor';
 import {
@@ -242,11 +243,17 @@ function galleryDto(row: GalleryRow) {
 
 // --- Esquemas de contenido -------------------------------------------------
 
+// El contenido del sitio se escribe con un editor visual, así que se guarda
+// como HTML. Se sanea aquí, al escribir, para que en la base solo haya HTML
+// seguro: el sitio público lo inserta directamente en el documento.
+const richBody = z.string().max(100_000).transform((value) => sanitizeRichText(value));
+const richText = (max: number) => z.string().trim().max(max).transform((value) => sanitizeRichText(value));
+
 const pageSchema = z.object({
   slug: z.string().trim().max(120).optional(),
   title: z.string().trim().min(1, 'El título es obligatorio.').max(200),
-  body: z.string().max(100000).nullable().optional(),
-  excerpt: z.string().trim().max(500).nullable().optional(),
+  body: richBody.nullable().optional(),
+  excerpt: richText(500).nullable().optional(),
   heroObjectId: z.number().int().positive().nullable().optional(),
   seoTitle: z.string().trim().max(200).nullable().optional(),
   seoDescription: z.string().trim().max(400).nullable().optional(),
@@ -255,8 +262,8 @@ const pageSchema = z.object({
 const newsSchema = z.object({
   slug: z.string().trim().max(120).optional(),
   title: z.string().trim().min(1, 'El título es obligatorio.').max(200),
-  summary: z.string().trim().max(500).nullable().optional(),
-  body: z.string().max(100000).nullable().optional(),
+  summary: richText(500).nullable().optional(),
+  body: richBody.nullable().optional(),
   coverObjectId: z.number().int().positive().nullable().optional(),
   seoTitle: z.string().trim().max(200).nullable().optional(),
   seoDescription: z.string().trim().max(400).nullable().optional(),
@@ -265,8 +272,8 @@ const newsSchema = z.object({
 const activitySchema = z.object({
   slug: z.string().trim().max(120).optional(),
   title: z.string().trim().min(1, 'El título es obligatorio.').max(200),
-  summary: z.string().trim().max(500).nullable().optional(),
-  body: z.string().max(100000).nullable().optional(),
+  summary: richText(500).nullable().optional(),
+  body: richBody.nullable().optional(),
   startsAt: z.string().trim().max(40).nullable().optional(),
   endsAt: z.string().trim().max(40).nullable().optional(),
   locationText: z.string().trim().max(200).nullable().optional(),
@@ -276,7 +283,7 @@ const activitySchema = z.object({
 const gallerySchema = z.object({
   slug: z.string().trim().max(120).optional(),
   title: z.string().trim().min(1, 'El título es obligatorio.').max(200),
-  description: z.string().trim().max(2000).nullable().optional(),
+  description: richText(2000).nullable().optional(),
 });
 
 // --- Registro de sub-recursos por tipo -------------------------------------
