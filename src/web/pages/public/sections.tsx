@@ -304,6 +304,13 @@ function HeroSection() {
   const name = institution.name.trim() || 'Cuerpo de Bomberos';
   const specialties = institution.specialties;
   const cover = institution.cover;
+  // `site.sections` llega ya filtrado por `is_enabled`, así que una clave
+  // ausente es una sección desactivada. Los CTA del héroe apuntan a esas
+  // secciones: sin este filtro, un ancla rota (`/#contact`) y un enlace a una
+  // sección oculta quedaban visibles igual.
+  const enabled = new Set(site.sections.map((section) => section.key));
+  const showContact = enabled.has('contact');
+  const showNews = enabled.has('news');
 
   return (
     <section
@@ -368,12 +375,16 @@ function HeroSection() {
                 dangerouslySetInnerHTML={{ __html: institution.description }}
               />
             ) : null}
-            <div className="flex flex-wrap gap-3 pt-1">
-              <PillLink to="/#contact">Contacto</PillLink>
-              <PillLink to="/noticias" variant={cover ? 'onCover' : 'outline'}>
-                Noticias
-              </PillLink>
-            </div>
+            {showContact || showNews ? (
+              <div className="flex flex-wrap gap-3 pt-1">
+                {showContact ? <PillLink to="/#contact">Contacto</PillLink> : null}
+                {showNews ? (
+                  <PillLink to="/noticias" variant={cover ? 'onCover' : 'outline'}>
+                    Noticias
+                  </PillLink>
+                ) : null}
+              </div>
+            ) : null}
             {specialties.length > 0 ? (
               <ul className="flex flex-wrap gap-2 pt-1">
                 {specialties.slice(0, 6).map((specialty) => (
