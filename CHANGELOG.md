@@ -7,6 +7,29 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+### Corregido
+
+- **Los botones de la portada respetaban las secciones desactivadas.** El héroe
+  mostraba siempre los enlaces «Contacto» y «Noticias», escritos a mano en el
+  componente y sin mirar la configuración. Con la sección de contacto
+  desactivada, además, «Contacto» quedaba como un ancla rota: apuntaba a
+  `/#contact`, un ancla que ya no existía en la página. Ahora ambos enlaces
+  aparecen solo si su sección está habilitada, igual que el resto de la portada.
+
+### Añadido
+
+- **Guía de despliegue en modo `workers.dev`** (`docs/DEPLOYMENT.md` §11 y la
+  plantilla `deploy/wrangler-instancia.example.jsonc`). El paso sobre la
+  dirección del sitio distinguía entre hacerlo en el panel o declararlo en la
+  configuración, pero daba por hecho que había dominio propio. Ahora la opción
+  sin dominio —la dirección gratuita que genera Cloudflare para la cuenta— es
+  la primera y recomendada, con lo que conviene saber antes de decidirse: que el
+  nombre del Worker **es** la etiqueta de DNS (63 caracteres, alfanuméricos y
+  guiones) y que renovarlo cambia la URL y obliga a volver a entrar; que el
+  subdominio se fija a nivel de cuenta y conviene fijarlo antes del primer
+  despliegue; y que a Cloudflare su documentación no lo trata como sitio de
+  negocio, aunque la instalación funcione igual y sin coste.
+
 ## [0.1.2] - 2026-10-16
 
 Corrige el fallo que impedía terminar la puesta en marcha de una instalación

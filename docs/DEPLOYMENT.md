@@ -147,7 +147,64 @@ sesiones caducadas, intentos de ingreso viejos y reservas de idempotencia
 vencidas. La auditoría **no** se purga: es el rastro de la instalación y su
 retención la decides tú.
 
-## 11. Configurar el dominio
+## 11. Elegir la dirección del sitio
+
+El Worker responde igual en la dirección por la que entre cada visita: no hay
+que declararle ningún dominio. Hay dos caminos y no son excluyentes en el
+tiempo — se puede empezar por el primero y añadir el segundo más adelante.
+
+### Opción A: solo `workers.dev` (sin dominio propio)
+
+Es la **dirección gratuita que genera Cloudflare** para tu cuenta. Sin dominio,
+sin DNS, sin certificado y sin zona que dar de alta: en cuanto despliegas, el
+sitio responde. Para una instalación nueva es el camino más corto, y el que
+recomienda este proyecto empezar.
+
+1. **Fija el subdominio de la cuenta antes del primer despliegue.** Es un ajuste
+   de cuenta, no del Worker, y determina la dirección de todo lo que despliegues
+   después. En el panel: **Workers & Pages → Change** junto a *Your subdomain*.
+2. **Elige el nombre del Worker** en tu `wrangler.<institución>.jsonc`. Ese
+   `name` **es** la etiqueta de DNS de la dirección, así que con `workers_dev`
+   activo tiene que cumplir: **63 caracteres o menos**, solo alfanuméricos y
+   guiones, y sin empezar ni terminar en guion. Sin `routes` el límite sube a
+   255, pero conviene pensarlo antes de dar el alta y no después.
+3. **No declares `routes` ni pongas `workers_dev: false`.** La plantilla de
+   ejemplo ya viene así a propósito, con el bloque `routes` comentado, y por
+   defecto `workers_dev` está activo. Desplegar es el paso 10, tal cual.
+4. Despliega y **anota la dirección** que imprime Wrangler:
+
+   ```bash
+   npm run build
+   npx wrangler deploy -c wrangler.<institución>.jsonc
+   # https://<nombre-del-worker>.<tu-subdominio>.workers.dev
+   ```
+
+5. **Comprueba** que `/api/v1/health` responde en esa dirección.
+
+Lo que conviene saber antes de decidirse:
+
+- **El nombre del Worker es la dirección.** Si más adelante lo renombras, cambia
+  la URL y la anterior deja de responder. Y como la cookie de sesión es del
+  anfitrión, un cambio de dirección obliga a **volver a entrar** a todo el
+  mundo. Ponle un nombre estable desde el principio.
+- **No es un sitio de negocio para Cloudflare.** Su documentación trata
+  `workers.dev` como *Free website* y recomienda para producción una ruta o un
+  dominio propio. Es una advertencia en el sentido de que Cloudflare no lo
+  ofrece como producto de negocio, no una limitación técnica de este proyecto:
+  la instalación funciona igual y sin coste.
+- **Puedes protegerla con Cloudflare Access** (Zero Trust) si quieres exigir
+  autenticación antes de dejar entrar, sin cambiar nada del proyecto.
+- **Todo lo demás sigue igual.** El `sitemap.xml`, el `robots.txt` y las
+  direcciones absolutas (`og:url`, `og:image`) se construyen con el anfitrión de
+  cada visita; la cookie de sesión va en `Secure` porque `workers.dev` es HTTPS;
+  y el mismo despliegue responde en `workers.dev`, en el dominio propio o en un
+  subdominio de pruebas sin reconfigurar nada.
+
+Para pasar de aquí a la opción B no hay que migrar nada: añades `routes` a la
+misma configuración y vuelves a desplegar. Tus datos, usuarios y contenido no se
+mueven; solo cambia por dónde se entra.
+
+### Opción B: dominio propio
 
 Requisito previo: el dominio tiene que estar dado de alta como **zona en tu
 cuenta de Cloudflare** (con sus servidores de nombres apuntando a Cloudflare),
@@ -206,9 +263,7 @@ seguridad.
 **El Worker no necesita que le digas cuál es el dominio.** El `sitemap.xml`, el
 `robots.txt` y las direcciones absolutas (`og:url`, `og:image`) se construyen a
 partir de la dirección por la que entra cada visita, y la sesión va en una cookie
-de ese mismo anfitrión. Por eso el mismo despliegue responde igual en
-`workers.dev`, en el dominio propio o en un subdominio de pruebas, sin
-reconfigurar nada. El campo `siteUrl` de los ajustes de SEO existe para un uso
+de ese mismo anfitrión. El campo `siteUrl` de los ajustes de SEO existe para un uso
 futuro y hoy no se consume.
 
 ## 12. Personalizar la web institucional

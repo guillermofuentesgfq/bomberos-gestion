@@ -23,6 +23,13 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
 
   // Nombre del Worker en tu cuenta. Minúsculas y guiones, y único en la cuenta.
+  //
+  // Con `workers_dev` activo (que es lo que hace esta plantilla sin tocar nada)
+  // este nombre **es la etiqueta de DNS** de la dirección
+  // `<name>.<tu-subdominio>.workers.dev`. Restricciones: 63 caracteres o menos,
+  // solo `a-z`, `A-Z`, `0-9` y guiones, y sin empezar ni terminar en guion.
+  // Renombrar el Worker cambia la URL y obliga a entrar de nuevo a todo el
+  // mundo (la cookie de sesión es del anfitrión): elige un nombre estable.
   "name": "mi-institucion",
 
   // El punto de entrada no cambia: es el mismo Worker para toda institución.
@@ -30,7 +37,22 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
 
-  // --- Dominio de la institución (opcional, pero recomendado) ---------------
+  // --- Dirección del sitio ---------------------------------------------------
+  //
+  // ESTA PLANTILLA DESPLEGA EN `workers.dev`, SIN DOMINIO PROPIO. No hay que
+  // hacer nada más: `workers_dev` está activo por defecto y `routes` está
+  // comentado. El sitio queda en
+  // `https://<name>.<tu-subdominio>.workers.dev`, que es la dirección gratuita
+  // que genera Cloudflare para tu cuenta.
+  //
+  // El subdominio es un ajuste **de la cuenta**, no del Worker, y conviene
+  // fijarlo antes del primer despliegue: panel → Workers & Pages → Change
+  // junto a *Your subdomain*.
+  //
+  // Procedimiento completo y qué conviene saber antes de decidirse:
+  // `docs/DEPLOYMENT.md` §11, «Opción A: solo workers.dev».
+  //
+  // --- Dominio propio (opcional, solo cuando lo tengas) ---------------------
   //
   // Con `custom_domain: true`, el propio despliegue crea el registro DNS y el
   // certificado: no hay que tocar el panel. Requisito: el dominio tiene que
