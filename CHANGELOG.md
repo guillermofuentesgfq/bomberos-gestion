@@ -7,6 +7,12 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.1.3] - 2026-10-18
+
+Un fallo visible en la portada y la guía que faltaba para instalar sin dominio
+propio. **Nada de esto exige ninguna acción al actualizar**: no hay migraciones
+nuevas ni cambios de esquema.
+
 ### Corregido
 
 - **Los botones de la portada respetaban las secciones desactivadas.** El héroe
@@ -29,6 +35,10 @@ procedimiento para publicar una versión está en
   subdominio se fija a nivel de cuenta y conviene fijarlo antes del primer
   despliegue; y que a Cloudflare su documentación no lo trata como sitio de
   negocio, aunque la instalación funcione igual y sin coste.
+- **Reglas y punteros de exploración con el grafo de conocimiento**
+  (`AGENTS.md`, `CLAUDE.md` y el cableado local de las agent skills). Se ignoran
+  las skills vendorizadas, que según `SECURITY.md` y `CONTRIBUTING.md` se
+  instalan por máquina y no se versionan.
 
 ## [0.1.2] - 2026-10-16
 
