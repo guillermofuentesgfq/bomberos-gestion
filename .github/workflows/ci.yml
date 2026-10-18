@@ -1,6 +1,10 @@
 # Integración continua: se ejecuta en cada push y pull request hacia `main`, y
 # en cada tag de versión (`vX.Y.Z`) para que ninguna publicación salga sin
 # verificarse. No usa secretos ni credenciales; solo compila y comprueba.
+#
+# Las actions van en `@v7`, no en `@v4`: la v4 corre sobre un runtime de Node 20
+# que GitHub ya marca como obsoleto, y de ahí el aviso que salía en cada
+# ejecución. La v7 mantiene los mismos inputs (`node-version-file` y `cache`).
 name: CI
 
 on:
@@ -28,10 +32,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Obtener el código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
