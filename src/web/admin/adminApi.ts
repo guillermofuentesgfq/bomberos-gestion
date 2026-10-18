@@ -672,6 +672,7 @@ export function archiveQuality(id: number, csrfToken: string): Promise<{ archive
 export interface PersonFichaInstitution {
   name: string;
   number: string;
+  corpsName: string;
   address: string;
   commune: string;
   region: string;
@@ -993,6 +994,7 @@ export function createReturn(
 export interface ActaInstitution {
   name: string;
   number: string;
+  corpsName: string;
   address: string;
   commune: string;
   region: string;
@@ -1102,6 +1104,7 @@ export function fetchReportSummary(signal?: AbortSignal): Promise<ReportSummary>
 export interface InventoryPrintInstitution {
   name: string;
   number: string;
+  corpsName: string;
   address: string;
   commune: string;
   region: string;

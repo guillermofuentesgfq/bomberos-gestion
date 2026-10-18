@@ -103,6 +103,10 @@ const richText = (max: number) =>
 const institutionSchema = z.object({
   name: z.string().trim().max(200).optional(),
   number: z.string().trim().max(40).optional(),
+  // Texto plano, como `name` y `number`: es el nombre del cuerpo tal como se
+  // escribe en un documento oficial, no un párrafo. No pasa por el saneador de
+  // HTML porque no se guarda HTML.
+  corpsName: z.string().trim().max(200).optional(),
   description: richText(2000).optional(),
   history: richText(20_000).optional(),
   mission: richText(4000).optional(),

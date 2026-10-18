@@ -138,6 +138,7 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
         {
           name: institution.name,
           number: institution.number,
+          corpsName: institution.corpsName,
           description: institution.description,
           history: institution.history,
           mission: institution.mission,
@@ -352,6 +353,15 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
               value={institution.number}
               onChange={(event) => patchInstitution('number', event.target.value)}
             />
+            <div className="md:col-span-2">
+              <TextField
+                id="inst-corps-name"
+                label="Cuerpo de Bomberos"
+                hint="Al que pertenece la institución, como se escribe en los documentos oficiales. Aparece en el encabezado y el pie del sitio y en el membrete de lo impreso."
+                value={institution.corpsName}
+                onChange={(event) => patchInstitution('corpsName', event.target.value)}
+              />
+            </div>
           </div>
 
           <RichTextEditor

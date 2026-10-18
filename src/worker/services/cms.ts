@@ -24,6 +24,12 @@ export interface SocialLink {
 export interface InstitutionConfig {
   name: string;
   number: string;
+  /**
+   * Cuerpo de bomberos al que pertenece la institución, tal como se escribe en
+   * los documentos oficiales. Es **texto plano**, a diferencia de `corpsInfo`,
+   * que es un bloque descriptivo en HTML para la sección «La compañía».
+   */
+  corpsName: string;
   description: string;
   history: string;
   mission: string;
@@ -67,6 +73,7 @@ export type SeoConfigPatch = {
 const DEFAULT_INSTITUTION: InstitutionConfig = {
   name: '',
   number: '',
+  corpsName: '',
   description: '',
   history: '',
   mission: '',
@@ -148,6 +155,7 @@ export async function getInstitutionConfig(db: D1Database): Promise<InstitutionC
   return {
     name: readString(map, 'name', DEFAULT_INSTITUTION.name),
     number: readString(map, 'number', DEFAULT_INSTITUTION.number),
+    corpsName: readString(map, 'corpsName', DEFAULT_INSTITUTION.corpsName),
     description: readString(map, 'description', DEFAULT_INSTITUTION.description),
     history: readString(map, 'history', DEFAULT_INSTITUTION.history),
     mission: readString(map, 'mission', DEFAULT_INSTITUTION.mission),
@@ -209,6 +217,7 @@ export async function updateInstitutionConfig(
   const entries: SettingEntry[] = [];
   pushString(entries, 'name', patch.name);
   pushString(entries, 'number', patch.number);
+  pushString(entries, 'corpsName', patch.corpsName);
   pushString(entries, 'description', patch.description);
   pushString(entries, 'history', patch.history);
   pushString(entries, 'mission', patch.mission);

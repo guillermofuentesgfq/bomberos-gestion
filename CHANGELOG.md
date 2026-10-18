@@ -7,6 +7,25 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+### Añadido
+
+- **Campo «Cuerpo de Bomberos» en los ajustes** (Ajustes → Información
+  institucional). Es el nombre del cuerpo al que pertenece la institución, tal
+  como se escribe en los documentos oficiales: por ejemplo, «Cuerpo de Bomberos
+  de Concepción». Aparece en el encabezado y el pie del sitio público y en el
+  membrete de todo lo que se puede imprimir —actas de entrega y baja, ficha del
+  personal e inventario.
+
+  No es el campo «Información del cuerpo de bomberos» que ya existía: aquel es
+  un párrafo en HTML para la sección «La compañía» de la portada, y este es un
+  nombre corto en texto plano. **No hace falta migración**, porque la
+  configuración institucional es una tabla de clave/valor y una clave nueva es
+  solo una fila más.
+
+  Los cuatro membretes lo muestran **entre el nombre y el número**, y solo si
+  tiene contenido: una instalación que no lo rellene ve exactamente lo mismo que
+  antes.
+
 ## [0.1.3] - 2026-10-18
 
 Un fallo visible en la portada y la guía que faltaba para instalar sin dominio

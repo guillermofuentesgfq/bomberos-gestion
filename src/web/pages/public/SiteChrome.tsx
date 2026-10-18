@@ -166,6 +166,9 @@ export function SiteHeader() {
             )}
             <span className="flex flex-col">
               <span className="text-lg leading-tight font-bold text-ink">{displayName}</span>
+              {institution.corpsName ? (
+                <span className="text-sm text-ink-muted">{institution.corpsName}</span>
+              ) : null}
               {institution.number ? (
                 <span className="text-sm text-ink-muted">{institution.number}</span>
               ) : null}
@@ -218,6 +221,9 @@ export function SiteFooter() {
       <Container className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-14 sm:px-6 sm:py-20 md:grid-cols-3 lg:px-8">
         <div className="flex flex-col gap-3">
           <p className="text-lg font-bold text-ink">{displayName}</p>
+          {institution.corpsName ? (
+            <p className="text-sm text-ink-muted">{institution.corpsName}</p>
+          ) : null}
           {institution.number ? <p className="text-sm text-ink-muted">{institution.number}</p> : null}
           {toPlainText(institution.description, 1) !== null ? (
             <div
