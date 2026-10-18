@@ -157,8 +157,34 @@ tiempo — se puede empezar por el primero y añadir el segundo más adelante.
 
 Es la **dirección gratuita que genera Cloudflare** para tu cuenta. Sin dominio,
 sin DNS, sin certificado y sin zona que dar de alta: en cuanto despliegas, el
-sitio responde. Para una instalación nueva es el camino más corto, y el que
-recomienda este proyecto empezar.
+sitio responde, y **sin gastar nada**. Para una instalación nueva es el camino
+más corto, y el que recomienda este proyecto empezar.
+
+> **Para qué sirve, y por qué la instalación real debería usar dominio.**
+>
+> `workers.dev` está aquí por una razón concreta: **dar acceso a coste cero**
+> mientras no hay presupuesto para un dominio, o mientras el dominio todavía no
+> existe. Para eso cumple bien.
+>
+> **Para una institución que va a durar, la recomendación es la opción B: un
+> dominio propio.** No por una limitación técnica del proyecto —todo funciona
+> igual en las dos direcciones— sino por razones que no dependen del código:
+>
+> - **La dirección es parte de la identidad de la institución.** Una dirección
+>   `…workers.dev` es de pruebas; el nombre propio es por el que la comunidad la
+>   conoce y el que ya está impreso en redes, impresos y tarjetas.
+> - **Cloudflare no lo ofrece como servicio de negocio.** Su documentación trata
+>   `workers.dev` como *Free website* y recomienda una ruta o un dominio propio
+>   para producción. El plan gratuito lo admite, pero es una decisión de la
+>   plataforma, no un derecho: puede cambiar sin aviso.
+> - **Un dominio cuesta unos pocos dólares al año** y es un activo propio: la
+>   dirección gratuita no lo es. Si mañana cambias de cuenta de Cloudflare, el
+>   Worker se va y `…workers.dev` se pierde.
+>
+> En resumen: **`workers.dev` para empezar y para una instalación de prueba o sin
+> presupuesto; dominio propio para la instalación real.** No es una decisión
+> irreversible —pasar de A a B no mueve tus datos— así que empezar por A no
+> cierra la puerta.
 
 1. **Fija el subdominio de la cuenta antes del primer despliegue.** Es un ajuste
    de cuenta, no del Worker, y determina la dirección de todo lo que despliegues
@@ -187,11 +213,7 @@ Lo que conviene saber antes de decidirse:
   la URL y la anterior deja de responder. Y como la cookie de sesión es del
   anfitrión, un cambio de dirección obliga a **volver a entrar** a todo el
   mundo. Ponle un nombre estable desde el principio.
-- **No es un sitio de negocio para Cloudflare.** Su documentación trata
-  `workers.dev` como *Free website* y recomienda para producción una ruta o un
-  dominio propio. Es una advertencia en el sentido de que Cloudflare no lo
-  ofrece como producto de negocio, no una limitación técnica de este proyecto:
-  la instalación funciona igual y sin coste.
+- **Cloudflare no lo ofrece como servicio de negocio.** Ver la nota de arriba.
 - **Puedes protegerla con Cloudflare Access** (Zero Trust) si quieres exigir
   autenticación antes de dejar entrar, sin cambiar nada del proyecto.
 - **Todo lo demás sigue igual.** El `sitemap.xml`, el `robots.txt` y las
@@ -205,6 +227,9 @@ misma configuración y vuelves a desplegar. Tus datos, usuarios y contenido no s
 mueven; solo cambia por dónde se entra.
 
 ### Opción B: dominio propio
+
+Es la opción recomendada para una instalación que va a durar (ver la nota de la
+opción A).
 
 Requisito previo: el dominio tiene que estar dado de alta como **zona en tu
 cuenta de Cloudflare** (con sus servidores de nombres apuntando a Cloudflare),
@@ -233,6 +258,25 @@ que es lo recomendado:
    cuenta, el despliegue falla con *«Couldn't find a zone named … in this
    account»* y no publica nada (el sitio sigue como estaba).
 
+> **Al añadir `routes`, la dirección `workers.dev` se apaga sola.** Wrangler
+> decide `workers_dev` así: si no lo declaras, vale `routes.length === 0`. En
+> cuanto tu bloque `routes` tiene una entrada, el valor por defecto pasa a
+> `false` y `…workers.dev` deja de responder **en ese mismo despliegue**.
+>
+> Si quieres que el sitio responda en las dos direcciones mientras el dominio
+> propaga, **decláralo explícitamente** junto a `routes`:
+>
+> ```jsonc
+> "workers_dev": true,
+> "routes": [
+>   { "pattern": "tu-dominio.cl", "custom_domain": true }
+> ]
+> ```
+>
+> Y cuando el dominio esté funcionando, vuelve a ponerlo en `false` (o quítalo)
+> y despliega: dos direcciones para el mismo sitio es contenido duplicado para
+> los buscadores.
+
 Si ya tienes un sitio en ese mismo nombre, añadir el Worker ahí lo sustituye (la
 interfaz te avisa del registro en conflicto); para convivir con él, usa un
 subdominio.
@@ -253,12 +297,11 @@ que es el caso al usar dominios personalizados). Un archivo `_redirects` **no**
 sirve para esto: en Workers no admite reglas por dominio y no se aplica a las
 respuestas que genera el Worker, y la portada la sirve el Worker.
 
-Comprobación: `/api/v1/health` responde en el dominio nuevo. Cuando funcione,
-puedes cerrar el acceso por la dirección `<worker>.<subdominio>.workers.dev`
-—dos direcciones para el mismo sitio es contenido duplicado para los buscadores—
-descomentando `"workers_dev": false` en tu configuración y volviendo a desplegar.
-No lo hagas antes: mientras el dominio propaga, `workers.dev` es tu red de
-seguridad.
+Comprobación: `/api/v1/health` responde en el dominio nuevo. A partir de ahí el
+dominio es la dirección del sitio, y `workers.dev` es opcional (ver la nota sobre
+`workers_dev` más arriba): si la mantuviste abierta durante la propagación,
+ciérrala con `"workers_dev": false` y vuelve a desplegar, porque dos direcciones
+para el mismo sitio es contenido duplicado para los buscadores.
 
 **El Worker no necesita que le digas cuál es el dominio.** El `sitemap.xml`, el
 `robots.txt` y las direcciones absolutas (`og:url`, `og:image`) se construyen a

@@ -45,14 +45,24 @@
   // `https://<name>.<tu-subdominio>.workers.dev`, que es la dirección gratuita
   // que genera Cloudflare para tu cuenta.
   //
+  // Para qué es: **acceso a coste cero**, mientras no hay presupuesto para un
+  // dominio o mientras este no existe. Para la instalación real de una
+  // institución la recomendación es un dominio propio: la dirección es parte de
+  // la identidad de la institución, y Cloudflare no ofrece `workers.dev` como
+  // servicio de negocio (lo documenta como *Free website* y recomienda ruta o
+  // dominio para producción).
+  //
+  // No es una decisión irreversible: pasar de aquí a un dominio no mueve tus
+  // datos, solo cambia por dónde se entra.
+  //
   // El subdominio es un ajuste **de la cuenta**, no del Worker, y conviene
   // fijarlo antes del primer despliegue: panel → Workers & Pages → Change
   // junto a *Your subdomain*.
   //
   // Procedimiento completo y qué conviene saber antes de decidirse:
-  // `docs/DEPLOYMENT.md` §11, «Opción A: solo workers.dev».
+  // `docs/DEPLOYMENT.md` §11, «Elegir la dirección del sitio».
   //
-  // --- Dominio propio (opcional, solo cuando lo tengas) ---------------------
+  // --- Dominio propio (recomendado para la instalación real) ------------------
   //
   // Con `custom_domain: true`, el propio despliegue crea el registro DNS y el
   // certificado: no hay que tocar el panel. Requisito: el dominio tiene que
@@ -63,6 +73,17 @@
   // Está comentado a propósito: así esta plantilla despliega tal cual (en la
   // dirección `workers.dev`) antes de que el dominio esté listo. Descoméntalo y
   // pon tu dominio cuando lo tengas.
+  //
+  // ⚠ AL DESCOMENTAR `routes`, LA DIRECCIÓN `workers.dev` SE APAGA. Wrangler
+  // decide `workers_dev` así: si no lo declaras, vale `routes.length === 0`.
+  // Con una entrada en `routes` el valor por defecto pasa a `false` y
+  // `…workers.dev` deja de responder en ese mismo despliegue.
+  //
+  //   · Para que las dos direcciones respondan mientras el dominio propaga,
+  //     declara `"workers_dev": true` JUNTO a `routes`.
+  //   · Cuando el dominio funcione, ciérrala con `"workers_dev": false`: dos
+  //     direcciones para el mismo sitio es contenido duplicado para los
+  //     buscadores.
   //
   // Si quieres que también responda `www.tu-dominio.cl`, añade una segunda
   // entrada. Ten en cuenta que entonces el sitio vive en dos direcciones, con
@@ -75,11 +96,6 @@
   //   { "pattern": "tu-dominio.cl", "custom_domain": true },
   //   { "pattern": "www.tu-dominio.cl", "custom_domain": true }
   // ],
-  //
-  // Cuando el dominio funcione, puedes cerrar el acceso por la dirección
-  // `<worker>.<subdominio>.workers.dev` (dos direcciones para el mismo sitio es
-  // contenido duplicado para los buscadores). No lo hagas antes: mientras el
-  // dominio propaga, `workers.dev` es tu red de seguridad.
   //
   // "workers_dev": false,
 

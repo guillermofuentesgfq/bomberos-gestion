@@ -25,6 +25,21 @@ procedimiento para publicar una versión está en
   Los cuatro membretes lo muestran **entre el nombre y el número**, y solo si
   tiene contenido: una instalación que no lo rellene ve exactamente lo mismo que
   antes.
+- **Aclaración sobre `workers.dev` y el dominio propio** (`docs/DEPLOYMENT.md`
+  §11). Se deja explícito que `workers.dev` sirve para **tener acceso a coste
+  cero**, y que para la instalación real de una institución la recomendación es
+  un **dominio propio**: la dirección es parte de la identidad de la institución
+  y Cloudflare documenta `workers.dev` como *Free website*, no como servicio de
+  negocio.
+- **Corrección: añadir `routes` apaga `workers.dev`.** La guía affirmaba que el
+  mismo Worker servía las dos direcciones y que `workers.dev` quedaba como «red
+  de seguridad» mientras el dominio propagaba. No es así: Wrangler decide
+  `workers_dev` como `routes.length === 0` cuando no se declara, de modo que al
+  descomentar el bloque `routes` la dirección `…workers.dev` deja de responder
+  en ese mismo despliegue. Verificado en el código de Wrangler
+  (`defaultWorkersDev = routes.length === 0`) y en su documentación. Ahora se
+  documenta cómo declarar `"workers_dev": true` si quieres mantener las dos
+  direcciones durante la propagación.
 
 ## [0.1.3] - 2026-10-18
 
