@@ -4,9 +4,16 @@ Este documento describe el modelo de seguridad y cómo reportar vulnerabilidades
 
 ## Reporte de vulnerabilidades
 
-No abras una incidencia pública para un problema de seguridad. Contacta en
-privado a los mantenedores del repositorio y da tiempo razonable antes de
-divulgarlo. Incluye: descripción, impacto, pasos de reproducción y versión.
+No abras una incidencia pública para un problema de seguridad. Usa el reporte
+privado de GitHub: en la pestaña **Security** del repositorio, en
+**Report a vulnerability**. Es un canal privado entre tú y los mantenedores: lo
+que escribes no aparece como incidencia hasta que se decide publicarlo.
+
+Da tiempo razonable antes de divulgarlo. Incluye: descripción, impacto, pasos de
+reproducción y versión.
+
+Si no puedes usar ese canal, escribe en privado a los mantenedores por la vía que
+prefieras.
 
 ## Modelo de amenazas
 
