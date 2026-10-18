@@ -7,6 +7,13 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.2.0] - 2026-10-18
+
+Un campo nuevo en los ajustes y una aclaración importante sobre la dirección del
+sitio. **Actualizar no exige ninguna acción**: no hay migraciones nuevas ni
+cambios de esquema. La sección «Corrección» sí afecta a quien ya tenga un dominio
+configurado.
+
 ### Añadido
 
 - **Campo «Cuerpo de Bomberos» en los ajustes** (Ajustes → Información
@@ -30,16 +37,38 @@ procedimiento para publicar una versión está en
   cero**, y que para la instalación real de una institución la recomendación es
   un **dominio propio**: la dirección es parte de la identidad de la institución
   y Cloudflare documenta `workers.dev` como *Free website*, no como servicio de
-  negocio.
-- **Corrección: añadir `routes` apaga `workers.dev`.** La guía affirmaba que el
-  mismo Worker servía las dos direcciones y que `workers.dev` quedaba como «red
-  de seguridad» mientras el dominio propagaba. No es así: Wrangler decide
-  `workers_dev` como `routes.length === 0` cuando no se declara, de modo que al
-  descomentar el bloque `routes` la dirección `…workers.dev` deja de responder
-  en ese mismo despliegue. Verificado en el código de Wrangler
-  (`defaultWorkersDev = routes.length === 0`) y en su documentación. Ahora se
-  documenta cómo declarar `"workers_dev": true` si quieres mantener las dos
-  direcciones durante la propagación.
+  negocio. No es una decisión irreversible —pasar de una a otra no mueve los
+  datos—, así que empezar sin dominio no cierra la puerta.
+
+### Corregido
+
+- **La guía de despliegue decía una cosa falsa sobre `workers.dev`.** Afirmaba
+  que «el mismo Worker sirve las dos direcciones» y que `workers.dev` quedaba
+  como «red de seguridad» mientras el dominio propagaba.
+
+  No es así. Wrangler decide `workers_dev` así:
+
+  ```js
+  const defaultWorkersDev = routes.length === 0;
+  const workers_dev = config_workers_dev ?? defaultWorkersDev;
+  ```
+
+  Si `workers_dev` **no se declara** y `routes` tiene entradas, vale `false`. Al
+  descomentar el bloque `routes` de la plantilla, la dirección `…workers.dev`
+  deja de responder **en ese mismo despliegue**, sin aviso. Verificado en el
+  código de Wrangler y en su documentación.
+
+  **Si ya tienes un dominio configurado y `…workers.dev` te dejó de responder**,
+  no es un fallo: declara `"workers_dev": true` junto a `routes` y vuelve a
+  desplegar. Cuando el dominio esté funcionando, ciérrala con
+  `"workers_dev": false` —dos direcciones para el mismo sitio es contenido
+  duplicado para los buscadores—.
+
+### Otros cambios
+
+- **Las actions del CI suben a la v7** (`actions/checkout` y `actions/setup-node`).
+  La v4 corría sobre un runtime de Node 20 que GitHub ya marca como obsoleto, y
+  lo avisaba en cada ejecución. Sin cambios en el flujo.
 
 ## [0.1.3] - 2026-10-18
 

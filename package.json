@@ -1,6 +1,6 @@
 {
   "name": "bomberos-gestion",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Sistema de gestión de inventario, personal y sitio web institucional para compañías y cuerpos de bomberos de Chile. Open source, autodesplegable y de una instalación por institución.",
