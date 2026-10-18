@@ -46,6 +46,14 @@ respaldos/
 uploads/
 data/
 
+# Agent skills
+#
+# Se instalan por máquina (~/.agents/skills/, ~/.claude/skills/), no se vendorizan
+# en el repositorio: son herramientas de terceros que envejecen y la cadena de
+# suministro del proyecto no las fija. Ver CONTRIBUTING.md y SECURITY.md. Los
+# punteros (.claude/CLAUDE.md, AGENTS.md, CLAUDE.md) sí se versionan.
+/.claude/skills/
+
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
 # The **/ prefix covers .impeccable at the repo root or in a nested workspace.
