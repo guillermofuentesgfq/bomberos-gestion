@@ -8,6 +8,8 @@ import { getInstitutionConfig } from './cms';
 export interface ActaInstitution {
   name: string;
   number: string;
+  /** Cuerpo de bomberos al que pertenece la institución. Ya es texto plano. */
+  corpsName: string;
   address: string;
   commune: string;
   region: string;
@@ -24,13 +26,14 @@ export interface ActaInstitution {
  *
  * `corpsInfo` se entrega como **texto plano**: el campo se escribe con el
  * editor enriquecido, y un acta impresa no debe llevar etiquetas ni formato
- * heredado del editor.
+ * heredado del editor. `corpsName` ya es texto plano y se entrega tal cual.
  */
 export async function actaInstitution(db: D1Database): Promise<ActaInstitution> {
   const config = await getInstitutionConfig(db);
   return {
     name: config.name,
     number: config.number,
+    corpsName: config.corpsName,
     address: config.address,
     commune: config.commune,
     region: config.region,

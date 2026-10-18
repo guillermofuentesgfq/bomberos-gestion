@@ -30,6 +30,7 @@ export interface PublicInstitution {
   mission: string;
   vision: string;
   values: string;
+  corpsName: string;
   corpsInfo: string;
   shield: PublicImage | null;
   logo: PublicImage | null;

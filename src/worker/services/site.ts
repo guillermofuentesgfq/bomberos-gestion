@@ -30,6 +30,8 @@ export interface PublicImage {
 export interface PublicInstitution {
   name: string;
   number: string;
+  /** Cuerpo de bomberos al que pertenece la institución. Texto plano. */
+  corpsName: string;
   description: string;
   history: string;
   mission: string;
@@ -215,6 +217,7 @@ export async function getPublicSite(db: D1Database): Promise<PublicSite> {
     institution: {
       name: institution.name,
       number: institution.number,
+      corpsName: institution.corpsName,
       description: institution.description,
       history: institution.history,
       mission: institution.mission,

@@ -62,6 +62,8 @@ export interface SocialLink {
 export interface InstitutionConfig {
   name: string;
   number: string;
+  /** Cuerpo de bomberos al que pertenece la institución. Texto plano. */
+  corpsName: string;
   description: string;
   history: string;
   mission: string;

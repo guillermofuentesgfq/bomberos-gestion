@@ -457,4 +457,40 @@ describe('texto enriquecido del contenido', () => {
     expect(site.body.data?.institution.history).toBe('<h2>1985</h2><p>Fundación de la compañía</p>');
     expect(site.body.data?.institution.values).toBe('<ul><li>Servicio</li><li>Honor</li></ul>');
   });
+
+  it('guarda el cuerpo de bomberos como texto plano y lo publica en el sitio', async () => {
+    const api = await adminClient();
+
+    const saved = await api.put('/api/v1/site/institution', {
+      name: 'Tercera Compañía',
+      corpsName: '  Cuerpo de Bomberos de Concepción  ',
+    });
+    expect(saved.status).toBe(200);
+
+    const settings = await api.get<{ institution: { corpsName: string } }>(
+      '/api/v1/site/institution',
+    );
+    // Sin HTML y sin espacios sobrantes: es un nombre, no un párrafo.
+    expect(settings.body.data?.institution.corpsName).toBe('Cuerpo de Bomberos de Concepción');
+
+    // Y llega al sitio público, que es donde lo muestran el encabezado y el pie.
+    const anonymous = new ApiClient();
+    const site = await anonymous.get<{ institution: { corpsName: string } }>('/api/v1/site');
+    expect(site.body.data?.institution.corpsName).toBe('Cuerpo de Bomberos de Concepción');
+  });
+
+  it('lleva el cuerpo de bomberos al membrete de lo impreso', async () => {
+    const api = await adminClient();
+    await api.put('/api/v1/site/institution', {
+      corpsName: 'Cuerpo de Bomberos de Concepción',
+    });
+
+    // El membrete sale de `actaInstitution`, que sirve el inventario imprimible
+    // y las actas. Si el campo no llegara aquí, ningún documento lo llevaría.
+    const report = await api.get<{ institution: { corpsName: string } }>(
+      '/api/v1/reports/inventory',
+    );
+    expect(report.status).toBe(200);
+    expect(report.body.data?.institution.corpsName).toBe('Cuerpo de Bomberos de Concepción');
+  });
 });

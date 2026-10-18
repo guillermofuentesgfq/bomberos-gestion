@@ -95,6 +95,9 @@ function BajaDocument({ data }: { data: ActaBaja }) {
           {isNotBlank(institution.name) ? (
             <p className="text-lg font-bold text-ink">{institution.name}</p>
           ) : null}
+          {isNotBlank(institution.corpsName) ? (
+            <p className="text-sm text-ink">{institution.corpsName}</p>
+          ) : null}
           {isNotBlank(institution.number) ? (
             <p className="text-sm text-ink">{institution.number}</p>
           ) : null}
