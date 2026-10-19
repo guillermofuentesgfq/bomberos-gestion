@@ -10,7 +10,10 @@ import {
   ActaBajaPage,
   ActaEntregaPage,
   AdminLayout,
+  ApplicantDetailPage,
+  ApplicantsPage,
   ContentAdminPage,
+  ImportPage,
   InventoryCatalogPage,
   InventoryPage,
   InventoryPrintPage,
@@ -119,7 +122,10 @@ function AdminPanel() {
 
   const personMatch = /^\/admin\/personas\/(\d+)$/.exec(currentPath);
   const personId = personMatch?.[1] ? Number(personMatch[1]) : null;
+  const applicantMatch = /^\/admin\/postulantes\/(\d+)$/.exec(currentPath);
+  const applicantId = applicantMatch?.[1] ? Number(applicantMatch[1]) : null;
 
+  const permissions = user.permissions;
   let content: ReactNode;
   if (personId !== null) {
     content = <PersonDetailPage csrfToken={csrfToken} personId={personId} />;
@@ -127,6 +133,18 @@ function AdminPanel() {
     content = <PersonsPage csrfToken={csrfToken} />;
   } else if (currentPath === '/admin/personas/catalogo') {
     content = <PersonsCatalogPage csrfToken={csrfToken} />;
+  } else if (currentPath === '/admin/importar') {
+    content = <ImportPage csrfToken={csrfToken} permissions={permissions} />;
+  } else if (applicantId !== null) {
+    content = (
+      <ApplicantDetailPage
+        applicantId={applicantId}
+        csrfToken={csrfToken}
+        permissions={permissions}
+      />
+    );
+  } else if (currentPath === '/admin/postulantes') {
+    content = <ApplicantsPage csrfToken={csrfToken} permissions={permissions} />;
   } else if (currentPath === '/admin/movimientos') {
     content = <MovementsPage />;
   } else if (currentPath === '/admin/contenido') {

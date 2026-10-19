@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { cx } from '../../lib/cx';
 import { formatDate, formatDateRange } from '../../lib/format';
@@ -9,6 +10,7 @@ import type {
   PublicImage,
   PublicNewsSummary,
 } from '../../lib/publicApi';
+import { submitApplication } from '../../lib/publicApi';
 import { AppLink, Container } from './SiteChrome';
 import { useSite } from './SiteContext';
 import { revealClass, useReveal } from './useReveal';
@@ -697,6 +699,325 @@ function ContactSection() {
   );
 }
 
+/** Ajustes de la sección de postulación tal como los publica la API. */
+interface ApplySettings {
+  title: string;
+  intro: string;
+  requirements: string;
+  isOpen: boolean;
+  closedMessage: string;
+  consentText: string;
+  successMessage: string;
+}
+
+const APPLY_DEFAULTS: ApplySettings = {
+  title: 'Postula a la compañía',
+  intro: '',
+  requirements: '',
+  isOpen: true,
+  closedMessage: 'Las postulaciones están cerradas por ahora.',
+  consentText: 'Autorizo el tratamiento de mis datos personales para participar del proceso.',
+  successMessage: 'Recibimos tu postulación.',
+};
+
+/** Lee los ajustes del blob público sin confiar en su forma. */
+function readApplySettings(settings: Record<string, unknown> | undefined): ApplySettings {
+  const raw = settings ?? {};
+  const text = (key: keyof ApplySettings, fallback: string): string =>
+    typeof raw[key] === 'string' ? (raw[key] as string) : fallback;
+  return {
+    title: text('title', APPLY_DEFAULTS.title),
+    intro: text('intro', APPLY_DEFAULTS.intro),
+    requirements: text('requirements', APPLY_DEFAULTS.requirements),
+    isOpen: typeof raw.isOpen === 'boolean' ? raw.isOpen : true,
+    closedMessage: text('closedMessage', APPLY_DEFAULTS.closedMessage),
+    consentText: text('consentText', APPLY_DEFAULTS.consentText),
+    successMessage: text('successMessage', APPLY_DEFAULTS.successMessage),
+  };
+}
+
+const APPLY_INPUT_CLASSES =
+  'min-h-11 w-full rounded-lg border border-line bg-surface px-4 py-3 text-base text-ink';
+
+interface ApplyFormValues {
+  fullName: string;
+  rut: string;
+  birthDate: string;
+  email: string;
+  phone: string;
+  commune: string;
+  address: string;
+  motivation: string;
+  availability: string;
+  consent: boolean;
+  website: string;
+}
+
+const EMPTY_APPLY_FORM: ApplyFormValues = {
+  fullName: '',
+  rut: '',
+  birthDate: '',
+  email: '',
+  phone: '',
+  commune: '',
+  address: '',
+  motivation: '',
+  availability: '',
+  consent: false,
+  website: '',
+};
+
+/**
+ * Sección de postulación: requisitos configurables (texto enriquecido saneado en
+ * el servidor) y formulario.
+ *
+ * El formulario se envía sin sesión. La respuesta es siempre la misma, así que
+ * tras enviarlo se muestra el mensaje de éxito configurado.
+ */
+function ApplySection() {
+  const { site } = useSite();
+  const [values, setValues] = useState<ApplyFormValues>(EMPTY_APPLY_FORM);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  if (!site) return null;
+  const section = site.sections.find((item) => item.key === 'apply');
+  const settings = readApplySettings(section?.settings);
+
+  function patch(partial: Partial<ApplyFormValues>): void {
+    setValues((current) => ({ ...current, ...partial }));
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (submitting) return;
+    if (values.fullName.trim().length === 0) {
+      setError('El nombre es obligatorio.');
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await submitApplication({
+        fullName: values.fullName,
+        rut: values.rut || undefined,
+        birthDate: values.birthDate || undefined,
+        email: values.email || undefined,
+        phone: values.phone || undefined,
+        commune: values.commune || undefined,
+        address: values.address || undefined,
+        motivation: values.motivation || undefined,
+        availability: values.availability || undefined,
+        consent: values.consent,
+        website: values.website || undefined,
+      });
+      setSent(true);
+      setValues(EMPTY_APPLY_FORM);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'No se pudo enviar la postulación.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <SectionShell id="apply" title={settings.title} tone="muted">
+      <div className="grid gap-10 lg:grid-cols-2 lg:gap-14">
+        <div className="flex flex-col gap-5">
+          {toPlainText(settings.intro, 1) ? (
+            <div
+              className="richtext text-lg leading-relaxed text-ink-muted"
+              dangerouslySetInnerHTML={{ __html: settings.intro }}
+            />
+          ) : null}
+          {toPlainText(settings.requirements, 1) ? (
+            <div className="card-frame">
+              <div className="card-frame-inner flex flex-col gap-3 p-7 sm:p-8">
+                <h3 className="text-2xl leading-tight font-bold text-ink">Requisitos</h3>
+                <div
+                  className="richtext text-base leading-relaxed text-ink-muted"
+                  dangerouslySetInnerHTML={{ __html: settings.requirements }}
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="card-frame">
+          <div className="card-frame-inner p-7 sm:p-8">
+            {!settings.isOpen ? (
+              <p className="text-lg leading-relaxed text-ink">{settings.closedMessage}</p>
+            ) : sent ? (
+              <div role="status" className="flex flex-col gap-3">
+                <p className="text-lg font-semibold text-ink">Postulación recibida</p>
+                <p className="text-base leading-relaxed text-ink-muted">{settings.successMessage}</p>
+              </div>
+            ) : (
+              <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
+                <h3 className="text-2xl leading-tight font-bold text-ink">Postula aquí</h3>
+
+                {error ? (
+                  <p role="alert" className="rounded-lg border-2 border-destructive bg-destructive/10 px-4 py-3 text-base text-ink">
+                    {error}
+                  </p>
+                ) : null}
+
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="apply-name" className="text-sm font-semibold text-ink">
+                    Nombre completo <span aria-hidden="true">*</span>
+                  </label>
+                  <input
+                    id="apply-name"
+                    required
+                    value={values.fullName}
+                    onChange={(event) => patch({ fullName: event.target.value })}
+                    className={APPLY_INPUT_CLASSES}
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="apply-rut" className="text-sm font-semibold text-ink">
+                      RUT
+                    </label>
+                    <input
+                      id="apply-rut"
+                      value={values.rut}
+                      onChange={(event) => patch({ rut: event.target.value })}
+                      className={APPLY_INPUT_CLASSES}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="apply-birth" className="text-sm font-semibold text-ink">
+                      Fecha de nacimiento
+                    </label>
+                    <input
+                      id="apply-birth"
+                      type="date"
+                      value={values.birthDate}
+                      onChange={(event) => patch({ birthDate: event.target.value })}
+                      className={APPLY_INPUT_CLASSES}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="apply-email" className="text-sm font-semibold text-ink">
+                      Correo
+                    </label>
+                    <input
+                      id="apply-email"
+                      type="email"
+                      value={values.email}
+                      onChange={(event) => patch({ email: event.target.value })}
+                      className={APPLY_INPUT_CLASSES}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="apply-phone" className="text-sm font-semibold text-ink">
+                      Teléfono
+                    </label>
+                    <input
+                      id="apply-phone"
+                      type="tel"
+                      value={values.phone}
+                      onChange={(event) => patch({ phone: event.target.value })}
+                      className={APPLY_INPUT_CLASSES}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="apply-commune" className="text-sm font-semibold text-ink">
+                      Comuna
+                    </label>
+                    <input
+                      id="apply-commune"
+                      value={values.commune}
+                      onChange={(event) => patch({ commune: event.target.value })}
+                      className={APPLY_INPUT_CLASSES}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label htmlFor="apply-address" className="text-sm font-semibold text-ink">
+                      Dirección
+                    </label>
+                    <input
+                      id="apply-address"
+                      value={values.address}
+                      onChange={(event) => patch({ address: event.target.value })}
+                      className={APPLY_INPUT_CLASSES}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="apply-availability" className="text-sm font-semibold text-ink">
+                    Disponibilidad
+                  </label>
+                  <input
+                    id="apply-availability"
+                    placeholder="Por ejemplo: tardes y fin de semana"
+                    value={values.availability}
+                    onChange={(event) => patch({ availability: event.target.value })}
+                    className={APPLY_INPUT_CLASSES}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label htmlFor="apply-motivation" className="text-sm font-semibold text-ink">
+                    ¿Por qué quieres postular?
+                  </label>
+                  <textarea
+                    id="apply-motivation"
+                    rows={4}
+                    maxLength={4000}
+                    value={values.motivation}
+                    onChange={(event) => patch({ motivation: event.target.value })}
+                    className={APPLY_INPUT_CLASSES}
+                  />
+                </div>
+
+                {/* Campo trampa: oculto para las personas, lo rellenan los robots. */}
+                <div aria-hidden="true" className="hidden">
+                  <label htmlFor="apply-website">Sitio web</label>
+                  <input
+                    id="apply-website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={values.website}
+                    onChange={(event) => patch({ website: event.target.value })}
+                  />
+                </div>
+
+                <label className="flex cursor-pointer items-start gap-3 text-base text-ink">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={values.consent}
+                    onChange={(event) => patch({ consent: event.target.checked })}
+                    className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-accent"
+                  />
+                  <span>{settings.consentText}</span>
+                </label>
+
+                <button
+                  type="submit"
+                  disabled={submitting || !values.consent}
+                  className="inline-flex min-h-11 cursor-pointer items-center justify-center rounded-lg bg-accent px-6 py-3 text-base font-semibold text-white hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? 'Enviando…' : 'Enviar postulación'}
+                </button>
+                <p className="text-sm text-ink-muted">
+                  Revisaremos tu postulación y te contactaremos internamente si avanzas en el
+                  proceso.
+                </p>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+    </SectionShell>
+  );
+}
+
 const SECTION_RENDERERS: Record<string, () => ReactNode> = {
   hero: HeroSection,
   about: AboutSection,
@@ -707,6 +1028,7 @@ const SECTION_RENDERERS: Record<string, () => ReactNode> = {
   news: NewsSection,
   activities: ActivitiesSection,
   contact: ContactSection,
+  apply: ApplySection,
 };
 
 /** Portada institucional compuesta a partir de `GET /site`. */

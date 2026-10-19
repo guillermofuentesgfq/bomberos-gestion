@@ -1,11 +1,16 @@
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import type { Context } from 'hono';
+import { z } from 'zod';
 import type { Env, Variables } from '../lib/env';
 import { AppError } from '../lib/errors';
 import { ok } from '../lib/http';
-import { getInstitutionConfig } from '../services/cms';
+import { readJson } from '../lib/validate';
+import { requireSameOrigin } from '../security/middleware';
+import { getInstitutionConfig, listSiteSections, normalizeSectionSettings, type ApplySectionSettings } from '../services/cms';
 import { getObjectRecord, objectBody } from '../services/storage';
+import { submitApplication } from '../services/applicants';
+import { applicantMessage, channelIncludesContact, notify } from '../services/notifications';
 import {
   buildRobots,
   buildSitemap,
@@ -89,6 +94,94 @@ publicRoutes.get('/galleries/:slug', publicCache, async (c) => {
   const gallery = await getPublicGalleryBySlug(c.env.DB, c.req.param('slug'));
   if (!gallery) throw AppError.notFound('Galería no encontrada.');
   return ok(c, { gallery });
+});
+
+/**
+ * Postulación pública.
+ *
+ * No exige sesión. La defensa es: mismo origen, límite por IP y un campo
+ * trampa; el resultado es siempre el mismo mensaje genérico, para no revelar si
+ * la postulación se guardó o se descartó por duplicada. La notificación a
+ * Telegram se dispara fuera del ciclo de respuesta: **nunca** puede hacer
+ * fallar ni retrasar el envío del postulante.
+ */
+const applicationSchema = z.object({
+  fullName: z.string().trim().min(1, 'El nombre es obligatorio.').max(160),
+  rut: z.string().trim().max(20).optional(),
+  birthDate: z.string().trim().max(20).optional(),
+  email: z.string().trim().max(160).optional(),
+  phone: z.string().trim().max(40).optional(),
+  address: z.string().trim().max(240).optional(),
+  commune: z.string().trim().max(120).optional(),
+  motivation: z.string().trim().max(4000).optional(),
+  availability: z.string().trim().max(400).optional(),
+  consent: z.boolean().refine((value) => value === true, {
+    message: 'Debes autorizar el tratamiento de tus datos para postular.',
+  }),
+  /** Campo trampa: invisible para una persona, lo rellenan los robots. */
+  website: z.string().max(200).optional(),
+});
+
+publicRoutes.post('/applications', requireSameOrigin, async (c) => {
+  const body = await readJson(c, applicationSchema);
+
+  // La sección tiene que estar publicada y abierta: un formulario cerrado no
+  // debe seguir guardando datos personales aunque alguien llame a la API
+  // directamente.
+  const sections = await listSiteSections(c.env.DB);
+  const applySection = sections.find((section) => section.key === 'apply');
+  const applySettings = normalizeSectionSettings(
+    'apply',
+    applySection?.settings ?? {},
+  ) as unknown as ApplySectionSettings;
+  if (!applySection || !applySection.isEnabled || applySettings.isOpen !== true) {
+    throw AppError.forbidden('Las postulaciones no están abiertas en este momento.');
+  }
+
+  const result = await submitApplication(
+    c.env.DB,
+    {
+      fullName: body.fullName,
+      rut: body.rut,
+      birthDate: body.birthDate,
+      email: body.email,
+      phone: body.phone,
+      address: body.address,
+      commune: body.commune,
+      motivation: body.motivation,
+      availability: body.availability,
+      consent: body.consent,
+      honeypot: body.website,
+    },
+    c.get('ipHash'),
+  );
+
+  if (result.stored && result.id !== null) {
+    const applicantId = result.id;
+    const origin = new URL(c.req.url).origin;
+    const includeContact = await channelIncludesContact(c.env.DB);
+    const text = applicantMessage(
+      {
+        fullName: body.fullName,
+        commune: body.commune ?? null,
+        email: body.email ?? null,
+        phone: body.phone ?? null,
+        motivation: body.motivation ?? null,
+        applicantId,
+        origin,
+      },
+      includeContact,
+    );
+    const task = notify(c.env, { event: 'applicant.created', text });
+    try {
+      c.executionCtx.waitUntil(task);
+    } catch {
+      // Sin executionCtx (pruebas): se espera para no dejar la promesa suelta.
+      await task;
+    }
+  }
+
+  return ok(c, { received: true }, 201);
 });
 
 /**

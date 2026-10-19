@@ -99,11 +99,13 @@ así:
 
 > **Limpieza periódica.** El Worker exporta un manejador `scheduled` que un cron
 > diario (`triggers.crons` en `wrangler.jsonc`) usa para borrar sesiones
-> caducadas o revocadas de más de 30 días, intentos de ingreso de más de 30 días
-> y reservas de idempotencia caducadas. El registro de auditoría **no** se
-> purga: es el rastro forense y su retención la decide el operador. El almacén de
-> archivos tiene además un tope agregado (`MAX_TOTAL_STORAGE_BYTES`, 1 GiB por
-> defecto en `services/storage.ts`): los topes por archivo no acotan el total.
+> caducadas o revocadas de más de 30 días, intentos de ingreso de más de 30 días,
+> reservas de idempotencia caducadas, eventos del limitador de peticiones y el
+> staging de importación (filas confirmadas a los 7 días, lotes abandonados a
+> los 30). El registro de auditoría **no** se purga: es el rastro forense y su
+> retención la decide el operador. El almacén de archivos tiene además un tope
+> agregado (`MAX_TOTAL_STORAGE_BYTES`, 1 GiB por defecto en
+> `services/storage.ts`): los topes por archivo no acotan el total.
 
 ### Archivos privados
 
@@ -139,8 +141,54 @@ saneado **no** ocurre en el cliente: un editor comprometido no puede saltárselo
 porque lo que llega a la base ya está limpio y es lo que sirve la API pública.
 Se complementa con la política de seguridad de contenido del Worker.
 
-### Identidad visual: icono y foto de portada
+### Importación masiva: dónde se parsea y por qué
 
+El parseo de una planilla vive **en el navegador**, no en el Worker. Motivos
+concretos: el plan gratuito da 10 ms de CPU por invocación, descomprimir y
+recorrer OOXML no cabe, y leer BIFF8 (`.xls` antiguo) exige una librería pesada
+que no tiene sentido cargar en cada petición. SheetJS se importa bajo demanda, de
+modo que solo se descarga al abrir la pantalla de importación.
+
+El Worker recibe filas ya normalizadas y las guarda en *staging*; al confirmar,
+escribe con **SQL set-based** (`INSERT … SELECT` sobre el staging). Es la
+decisión que hace viable el tope de **50 consultas por invocación** del plan
+gratuito: un `INSERT` por fila lo agotaría con quince materiales. Una
+confirmación de 10 000 filas cuesta media docena de sentencias y va en un único
+`batch()`, que es transaccional.
+
+Consecuencias asumidas:
+
+- **Las fotos no entran** en la importación: el archivo no las lleva.
+- **No se actualizan materiales existentes**: un código repetido es un error.
+- Las existencias de la plantilla se **suman** al saldo, y generan un movimiento.
+- La confirmación es **idempotente por clave natural** (código de material, RUT):
+  reimportar no duplica.
+- El staging consume escrituras de D1 y se purga por cron.
+
+### Postulación pública y PII
+
+El formulario de postulación es el único endpoint público con estado. Se protege
+con `requireSameOrigin` (igual que el acceso), un límite por hash de IP, un campo
+trampa y topes de longitud. La respuesta es **siempre la misma** para no revelar
+si la postulación se guardó o se descartó por duplicada. El consentimiento se
+registra con marca de tiempo y la IP solo como hash.
+
+Los requisitos de postulación son texto enriquecido: se sanean **al guardar y al
+leer** los ajustes de la sección (lista blanca de etiquetas). Antes de esta
+versión, los ajustes de una sección se guardaban sin validar y llegaban al sitio
+público con `dangerouslySetInnerHTML`.
+
+### Notificaciones sin correo
+
+La instalación no envía correo. Los avisos se publican en un grupo de Telegram
+mediante un bot que se habilita desde Ajustes. El token se guarda cifrado
+(AES-256-GCM con clave derivada de `AUTH_SESSION_SECRET`) y nunca se devuelve al
+cliente. El envío se entrega con `ctx.waitUntil()` y **nunca** propaga el error:
+un fallo de Telegram no puede tumbar la operación que lo originó. Rotar
+`AUTH_SESSION_SECRET` invalida el token guardado, y la aplicación lo detecta y
+pide volver a pegarlo.
+
+### Identidad visual: icono y foto de portada
 El **icono de la pestaña** (`/favicon.ico` y `/apple-touch-icon.png`) lo sirve
 el Worker a partir del escudo configurado, y si no hay escudo, del logotipo. No
 hay un archivo fijo en el repositorio: así cada instalación lleva su propia

@@ -10,6 +10,9 @@ import { filesRoutes } from './files';
 import { reportsRoutes } from './reports';
 import { publicRoutes } from './public';
 import { contentRoutes } from './content';
+import { importRoutes } from './imports';
+import { applicantRoutes } from './applicants';
+import { notificationRoutes } from './notifications';
 
 /** Router de la API v1. Aquí se montan los módulos por dominio. */
 export const api = new Hono<{ Bindings: Env; Variables: Variables }>();
@@ -24,7 +27,7 @@ api.get('/health', (c) => {
   return ok(c, {
     status: 'ok',
     time: new Date().toISOString(),
-    version: '0.1.0',
+    version: '0.3.0',
   });
 });
 
@@ -43,6 +46,9 @@ api.route('/persons', personRoutes);
 api.route('/users', usersRoutes);
 api.route('/files', filesRoutes);
 api.route('/reports', reportsRoutes);
+api.route('/imports', importRoutes);
+api.route('/applicants', applicantRoutes);
+api.route('/settings/notifications', notificationRoutes);
 // Sitio público (sin autenticación) y administración del contenido.
 api.route('/', publicRoutes);
 api.route('/site', contentRoutes);

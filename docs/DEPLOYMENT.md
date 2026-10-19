@@ -117,6 +117,13 @@ Nunca escribas secretos en `wrangler.jsonc`, en tu configuración de institució
 ni en el repositorio. En producción, `AUTH_SESSION_SECRET` es obligatorio: sin
 él el Worker se niega a derivar hashes en vez de usar un valor por defecto.
 
+> **Las notificaciones por Telegram no añaden secretos.** El token del bot se
+> pega en la aplicación (Ajustes → Notificaciones) y se guarda **cifrado** con
+> una clave derivada de `AUTH_SESSION_SECRET`. Consecuencia: si algún día rotas
+> `AUTH_SESSION_SECRET`, el token guardado deja de poder descifrarse y hay que
+> volver a pegarlo. Los pasos para crear el bot están en
+> [`NOTIFICATIONS.md`](NOTIFICATIONS.md).
+
 ## 9. Crear el primer administrador
 
 1. Despliega primero (sección 10) o levanta el entorno local.
@@ -316,6 +323,15 @@ la institución, escudo, logotipo, color principal, foto de portada, textos de
 inicio, historia, contacto y redes; y las páginas, noticias, actividades y
 galerías del sitio público. Todo se edita sin tocar código, y el contenido pasa
 de borrador a publicado cuando lo decidas.
+
+En **Ajustes → Postulación** se configura la sección pública de postulación: los
+requisitos (texto enriquecido), la apertura o cierre y los mensajes. La sección se
+publica activándola en **Ajustes → Secciones de la portada**. Las postulaciones
+llegan al apartado **Postulantes**.
+
+En **Ajustes → Notificaciones** se habilita el bot de Telegram para los avisos.
+Los pasos para crear el bot están en [`NOTIFICATIONS.md`](NOTIFICATIONS.md), y el
+detalle de las planillas de importación, en [`IMPORTING.md`](IMPORTING.md).
 
 ## 13. Crear los usuarios
 

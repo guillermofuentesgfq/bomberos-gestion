@@ -8,10 +8,13 @@ configura y opera su **propia instalación independiente** en su **propia cuenta
 de Cloudflare**. No hay plataforma central, no hay multitenencia y no hay
 dependencia de un servicio externo de gestión.
 
-> **Estado:** primera versión publicada (**v0.1.0**). Funcionalidad completa de
-> inventario, personal, asignaciones, informes y sitio público con gestor de
-> contenidos. Queda pendiente la importación de datos del sistema anterior
-> (SQLite). Ver `CHANGELOG.md` y `docs/ARCHITECTURE.md`.
+> **Estado:** versión **v0.3.0**. Funcionalidad completa de inventario, personal,
+> asignaciones, informes, sitio público con gestor de contenidos, **importación
+> masiva desde planillas** (Excel y CSV), **postulación de nuevos integrantes**
+> desde el sitio y **notificaciones por Telegram**. No queda funcionalidad
+> pendiente: la antigua idea de importar el volcado SQLite del sistema previo se
+> sustituyó por la importación desde planilla. Ver `CHANGELOG.md` y
+> `docs/ARCHITECTURE.md`.
 
 ---
 
@@ -38,12 +41,96 @@ instalación. La configuración representa **una sola institución**.
   devoluciones totales y parciales, actas imprimibles.
 - **Traslados, bajas y mantenimiento:** movimientos parciales, bajas con motivo
   obligatorio, registro de reparaciones e intervenciones.
-- **Catastro e importaciones:** registro inicial y validación previa.
+- **Importación masiva desde planilla:** carga de materiales con sus existencias
+  y de fichas de personal desde `.xlsx`, `.xls` o `.csv`. Plantillas
+  descargables, análisis previo con informe de errores y dos modos de
+  confirmación. **Las fotos no se importan.**
+- **Postulación de nuevos integrantes:** sección configurable en el sitio
+  público con los requisitos de postulación en texto enriquecido, formulario con
+  consentimiento, revisión de postulantes, bitácora de contacto interno y
+  conversión en ficha de integrante.
+- **Notificaciones por Telegram:** un bot publica en un grupo los avisos de la
+  instalación (hoy, las postulaciones nuevas). Se habilita desde Ajustes.
 - **Informes y exportaciones:** inventario, material por ubicación y categoría,
-  asignaciones, movimientos, bajas, personal, actas y exportación a Excel.
+  asignaciones, movimientos, bajas, personal, actas, postulantes y exportación a
+  Excel.
 - **Sitio web público institucional:** landing configurable con secciones que se
   activan, desactivan y ordenan, más un gestor de contenidos (páginas, noticias,
   actividades, galerías) sin tocar código.
+
+## Importación de datos
+
+Para mudarse desde otro sistema no hace falta exportar SQL: la instalación
+importa **planillas**. Funciona con el orden del panel → **Importar** (aparece
+bajo Inventario y bajo Personas, según los permisos de la cuenta).
+
+1. **Descarga la plantilla.** Se genera al vuelo con los encabezados, los
+   catálogos de tu instalación (categorías, tipos, ubicaciones, condiciones,
+   calidades) y las instrucciones, en `.xlsx` o `.csv`.
+2. **Súbela.** Formatos admitidos: `.xlsx`, `.xls` y `.csv` (hasta 10 MB y
+   20 000 filas). El archivo se lee **en el navegador**; la API recibe las filas
+   por lotes.
+3. **Revisa el análisis.** Antes de escribir nada, la pantalla muestra cuántas
+   filas son válidas, cuántas tienen error y cuántas traen advertencias, con los
+   errores agrupados por causa.
+4. **Confirma.** «Todo o nada» solo importa si no hay ningún error; «solo filas
+   válidas» importa lo correcto y deja constancia de lo omitido. El informe de
+   errores se descarga en Excel.
+
+Qué importa cada plantilla:
+
+- **Materiales:** una fila por material y ubicación, con categoría, tipo, marca,
+  modelo, stock mínimo y la cantidad inicial por ubicación y condición. Un mismo
+  código repetido reparte existencias entre ubicaciones. Las existencias se
+  **suman** a lo que ya hubiera. Un código existente es un error: esta versión no
+  reescribe materiales.
+- **Personas:** nombre, RUT validado, calidad, cargo, contacto, fechas y notas.
+  Un RUT repetido dentro del archivo o ya presente es un error.
+
+**Las fotos no se importan.** Ni de materiales ni de personas: se suben una a una
+desde cada ficha, una vez creado el registro. La importación tampoco crea
+unidades individuales con serie ni talla; un material marcado como individual se
+crea, y sus unidades se cargan después desde su ficha.
+
+Detalle de columnas, códigos de error y límites en
+[`docs/IMPORTING.md`](docs/IMPORTING.md).
+
+## Postulación de nuevos integrantes
+
+La portada puede incluir una sección **«Postulación»**, configurable desde
+Ajustes → Postulación:
+
+- Título, introducción y **requisitos de postulación en texto enriquecido**
+  (saneado en el servidor).
+- Apertura y cierre de postulaciones, con su propio mensaje.
+- Texto de consentimiento y mensaje de éxito.
+
+El formulario público pide nombre, RUT, fecha de nacimiento, correo, teléfono,
+comuna, dirección, disponibilidad y motivación, con una casilla de consentimiento
+obligatoria. Las postulaciones caen en **Postulantes** (panel), donde se revisan,
+se cambia su estado, se registran notas internas y una **bitácora de contacto**.
+Desde ahí se pueden abrir los enlaces de teléfono o WhatsApp y, si avanza el
+proceso, convertirlo en ficha de integrante.
+
+No hay envío de correo: **el sistema no manda correos**. Los avisos salen por
+Telegram (ver abajo) y el contacto lo hace una persona.
+
+## Notificaciones por Telegram
+
+Cada aviso interno se publica en un grupo de Telegram mediante un bot. Quien
+administra la instalación lo habilita **desde Ajustes → Notificaciones**, sin
+línea de comandos: pega el token que entrega BotFather, el identificador del
+grupo y usa «Enviar mensaje de prueba».
+
+- El token se guarda **cifrado** (AES-256-GCM, con clave derivada de
+  `AUTH_SESSION_SECRET`) y la pantalla nunca lo devuelve.
+- Por defecto el aviso lleva **solo** el nombre, la comuna y un enlace al panel.
+  Incluir teléfono y correo es una decisión explícita (el grupo es un servicio
+  externo).
+- Si Telegram falla, la operación que originó el aviso (por ejemplo, la
+  postulación) **no** se ve afectada: el fallo queda registrado en Ajustes.
+
+Detalle en [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md).
 
 ## Arquitectura en una frase
 
@@ -156,7 +243,7 @@ instalación en la sección *Actualizaciones* de
 
 ```bash
 git fetch upstream --tags     # traer las versiones publicadas
-git merge v0.1.0              # actualizar a una de ellas
+git merge v0.3.0              # actualizar a una de ellas
 ```
 
 ---
@@ -167,6 +254,8 @@ git merge v0.1.0              # actualizar a una de ellas
 |---|---|
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Arquitectura, capas y decisiones |
 | [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Esquema de datos y propósito de cada tabla |
+| [`docs/IMPORTING.md`](docs/IMPORTING.md) | Plantillas de importación, columnas y errores |
+| [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md) | Bot de Telegram: habilitación y avisos |
 | [`docs/AUDIT.md`](docs/AUDIT.md) | Auditoría del sistema original y matriz de paridad |
 | [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) | Instalación y despliegue paso a paso |
 | [`docs/RELEASING.md`](docs/RELEASING.md) | Cómo se publica una versión |

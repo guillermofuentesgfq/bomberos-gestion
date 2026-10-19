@@ -23,8 +23,8 @@ prueba, conservando las tablas de referencia.
 ## Estado actual (real)
 
 ```
-Test Files  16 passed (16)
-     Tests  180 passed (180)
+Test Files  19 passed (19)
+     Tests  207 passed (207)
 ```
 
 | Archivo | Qué cubre |
@@ -43,8 +43,11 @@ Test Files  16 passed (16)
 | `tests/content.test.ts` | sitio público, CMS (borrador/publicar/retirar), SEO (sitemap y robots), informes `.xlsx`, imágenes públicas/privadas y **saneado del texto enriquecido de extremo a extremo (contenido y textos institucionales)** |
 | `tests/document.test.ts` | el documento de la SPA se sirve desde el Worker con las cabeceras de seguridad y el respaldo de rutas de cliente funciona |
 | `tests/platform-limits.test.ts` | **límites de la plataforma que el entorno local no aplica** (tope de PBKDF2, parámetros por consulta y bytes de un patrón `LIKE` de D1, y troceado de consultas), con los valores fijados como contrato |
-| `tests/maintenance.test.ts` | limpieza programada (sesiones, intentos de ingreso y reservas de idempotencia caducadas) y acotado del `user-agent` |
+| `tests/maintenance.test.ts` | limpieza programada (sesiones, intentos de ingreso, reservas de idempotencia, limitador y staging de importación) y acotado del `user-agent` |
 | `tests/users.test.ts` | alta, edición, roles, contraseña temporal, desbloqueo y archivado de usuarios; **protecciones para no quedarse sin administrador** y control de permisos |
+| `tests/imports.test.ts` | normalización de fechas, RUT y catálogos; plantillas `.xlsx`/`.csv`; importación de materiales con existencias; modo «todo o nada» frente a «solo válidas»; idempotencia por código; informe de errores; RUT duplicado; cargo sin RUT; permisos |
+| `tests/applicants.test.ts` | envío público, consentimiento obligatorio, duplicado silencioso, campo trampa, límite por conexión, revisión y conversión a integrante, permisos y **saneado de los requisitos de la sección** |
+| `tests/notifications.test.ts` | cifrado y descifrado del token, rotación de clave, el token nunca se devuelve, configuración del canal, envío con `fetch` simulado, fallo de Telegram sin romper la operación y **redacción del token en los errores** |
 
 ## Cobertura de los casos exigidos
 
