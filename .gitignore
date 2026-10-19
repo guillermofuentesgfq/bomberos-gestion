@@ -54,17 +54,6 @@ data/
 # punteros (.claude/CLAUDE.md, AGENTS.md, CLAUDE.md) sí se versionan.
 /.claude/skills/
 
-# Grafo de conocimiento de graphify
-#
-# Es una salida generada en la máquina de cada persona: el `graph.json` se
-# reescribe entero en cada construcción, el caché pesa megabytes y no aporta nada
-# a quien no lo regenera, y dentro quedan rutas absolutas con el nombre de usuario
-# de quien lo construyó — que en un repositorio público es un dato que no
-# debería publicarse.
-#
-# Se regenera con `graphify .` (o `/graphify` en un agente). Ver AGENTS.md.
-/graphify-out/
-
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
 # The **/ prefix covers .impeccable at the repo root or in a nested workspace.
