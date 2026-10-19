@@ -1,6 +1,7 @@
 import { AppError } from '../lib/errors';
 import { randomId, slugify } from '../lib/ids';
 import { nowIso } from '../lib/time';
+import { sanitizeRichText } from '../lib/richtext';
 import { logAudit } from '../security/audit';
 import type { Actor } from '../security/actor';
 import * as content from '../repositories/content';
@@ -317,6 +318,68 @@ export interface SiteSectionPatch {
   settings?: Record<string, unknown> | undefined;
 }
 
+/**
+ * Ajustes de la sección de postulación.
+ *
+ * Los valores vienen del panel y **no** son de confianza: aquí se aplica una
+ * lista blanca de campos y se sanea el HTML enriquecido. Sin esto, un
+ * administrador comprometido (o un error de programación) podría guardar
+ * `<script>` en los ajustes y el sitio público lo insertaría con
+ * `dangerouslySetInnerHTML`.
+ */
+export interface ApplySectionSettings {
+  title: string;
+  intro: string;
+  requirements: string;
+  isOpen: boolean;
+  closedMessage: string;
+  consentText: string;
+  successMessage: string;
+}
+
+export const DEFAULT_APPLY_SETTINGS: ApplySectionSettings = {
+  title: 'Postula a la compañía',
+  intro: '',
+  requirements: '',
+  isOpen: true,
+  closedMessage: 'Las postulaciones están cerradas por ahora.',
+  consentText: 'Autorizo el tratamiento de mis datos personales para participar del proceso.',
+  successMessage: 'Recibimos tu postulación.',
+};
+
+function readText(value: unknown, max: number, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  return value.trim().slice(0, max);
+}
+
+function readBool(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function readRich(value: unknown, max: number): string {
+  if (typeof value !== 'string') return '';
+  return sanitizeRichText(value.slice(0, max));
+}
+
+/** Normaliza los ajustes según la clave de la sección. */
+export function normalizeSectionSettings(
+  key: string,
+  settings: Record<string, unknown>,
+): Record<string, unknown> {
+  if (key !== 'apply') return settings;
+
+  const current: Record<string, unknown> = { ...DEFAULT_APPLY_SETTINGS, ...settings };
+  return {
+    title: readText(current.title, 120, DEFAULT_APPLY_SETTINGS.title),
+    intro: readRich(current.intro, 2000),
+    requirements: readRich(current.requirements, 10000),
+    isOpen: readBool(current.isOpen, true),
+    closedMessage: readText(current.closedMessage, 400, DEFAULT_APPLY_SETTINGS.closedMessage),
+    consentText: readText(current.consentText, 1000, DEFAULT_APPLY_SETTINGS.consentText),
+    successMessage: readText(current.successMessage, 500, DEFAULT_APPLY_SETTINGS.successMessage),
+  };
+}
+
 export async function updateSiteSection(
   db: D1Database,
   key: string,
@@ -328,7 +391,10 @@ export async function updateSiteSection(
 
   const isEnabled = patch.isEnabled ?? existing.is_enabled === 1;
   const currentSettings = parseSectionSettings(existing.settings);
-  const settings = patch.settings ?? currentSettings;
+  const settings = normalizeSectionSettings(
+    key,
+    patch.settings ?? currentSettings,
+  );
 
   await content.updateSection(db, key, {
     isEnabled,

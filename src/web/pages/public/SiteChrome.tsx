@@ -30,6 +30,7 @@ const SECTION_NAV: Record<string, NavItem> = {
   news: { label: 'Noticias', href: '/noticias' },
   activities: { label: 'Actividades', href: '/actividades' },
   contact: { label: 'Contacto', href: '/#contact' },
+  apply: { label: 'Postulación', href: '/#apply' },
 };
 
 /** Enlace interno que respeta los anclajes de la portada. */

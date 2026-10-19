@@ -7,6 +7,76 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.3.0] - 2026-10-19
+
+La versión que cierra la funcionalidad pendiente: **importación desde planilla**,
+**postulación de nuevos integrantes** desde el sitio público y **notificaciones
+por Telegram**. Sustituye la idea original de importar el volcado SQLite del
+sistema anterior: se importa desde `.xlsx`, `.xls` o `.csv`, no desde SQL.
+
+**Actualizar exige aplicar las migraciones nuevas** (`0006`, `0007` y `0008`), que
+solo añaden tablas, permisos y una sección. No hay pasos manuales.
+
+### Añadido
+
+- **Importación masiva de materiales y personas** desde planillas. El archivo se
+  lee **en el navegador** (el Worker no tiene CPU para OOXML y no puede leer
+  BIFF8) y la API recibe las filas por lotes. La confirmación se escribe con SQL
+  set-based, dentro de una transacción, para respetar el tope de consultas por
+  invocación del plan gratuito de D1.
+  - Plantillas descargables (`.xlsx` y `.csv`) con los catálogos de la
+    instalación y las instrucciones.
+  - **Análisis previo**: errores agrupados por causa, con informe descargable.
+  - Dos modos: «todo o nada» y «solo filas válidas».
+  - Material: código, nombre, categoría, tipo, marca, modelo, stock mínimo,
+    `es_individual` y existencias por ubicación y condición. Las existencias se
+    **suman** al saldo; un código existente es un error y no se reescribe.
+  - Personas: RUT con dígito verificador validado, calidad, cargo, contacto,
+    fechas y notas. Un RUT repetido es un error.
+  - **Las fotos no se importan** (ni de material ni de personas) y la importación
+    no crea unidades individuales con serie o talla.
+  - Nuevo permiso `persons.import`; la importación de material reutiliza
+    `inventory.import`.
+- **Sección de postulación en el sitio público.** Configurable desde Ajustes →
+  Postulación: título, introducción y **requisitos en texto enriquecido**,
+  apertura o cierre, texto de consentimiento y mensaje de éxito. El formulario
+  pide datos de contacto, disponibilidad y motivación, con consentimiento
+  obligatorio.
+- **Apartado Postulantes en el panel.** Listado con filtros, ficha, cambio de
+  estado, notas internas, bitácora de contacto, enlaces de llamada/WhatsApp,
+  exportación a Excel y **conversión en ficha de integrante**. Permisos
+  `applicants.read` y `applicants.write`.
+- **Notificaciones por Telegram.** Un bot publica en un grupo los avisos; se
+  habilita desde Ajustes → Notificaciones, con botón de mensaje de prueba. El
+  token se guarda **cifrado** (AES-256-GCM, clave derivada de
+  `AUTH_SESSION_SECRET`) y nunca se devuelve al cliente. El aviso de una
+  postulación nueva lleva, por defecto, solo el nombre, la comuna y un enlace al
+  panel. **El sistema no envía correo.**
+- Limitador genérico de peticiones (`throttle_events`) para el formulario
+  público: 5 envíos por hora y 20 por día por conexión, con campo trampa y
+  respuesta genérica.
+- Documentación nueva: [`docs/IMPORTING.md`](docs/IMPORTING.md) y
+  [`docs/NOTIFICATIONS.md`](docs/NOTIFICATIONS.md).
+
+### Corregido
+
+- **Los ajustes de una sección del sitio se guardaban sin validar.** El HTML de
+  los ajustes llegaba al sitio público con `dangerouslySetInnerHTML` sin pasar
+  por el saneador, así que un ajuste manipulado podía inyectar marcado. Ahora los
+  ajustes de la sección de postulación se validan contra una lista blanca y su
+  texto enriquecido se sanea **al guardar y al leer**.
+- La sonda de salud informaba la versión `0.1.0` desde la 0.2.0.
+
+### Notas de actualización
+
+- Las existencias de una planilla se **suman** al saldo existente; no lo
+  reemplazan. Reimportar un archivo ya aplicado no duplica materiales ni
+  personas.
+- En el plan gratuito, cada fila importada consume escrituras de D1 (staging y
+  destino). Para archivos grandes conviene partirlos por debajo de 5 000 filas.
+- La limpieza diaria purga el staging de importación y los eventos del
+  limitador.
+
 ## [0.2.0] - 2026-10-18
 
 Un campo nuevo en los ajustes y una aclaración importante sobre la dirección del

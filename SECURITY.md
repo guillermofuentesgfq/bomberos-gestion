@@ -62,7 +62,35 @@ abuso automatizado.
 
 Roles iniciales configurables: administrador, responsable de inventario,
 responsable de asignaciones, editor del sitio y usuario de consulta. Los permisos
-son granulares y se comprueban en el servidor.
+son granulares y se comprueban en el servidor. Los apartados nuevos traen los
+suyos: `persons.import` (importar fichas), `applicants.read` y
+`applicants.write` (revisar y gestionar postulaciones). No se reutiliza
+`persons.read` para las postulaciones, de modo que consultar fichas de personal
+no da acceso a los datos de quienes postulan.
+
+## Datos personales
+
+- **Postulaciones.** El formulario público es el único endpoint anónimo con
+  estado. Se protege con comprobación de mismo origen, límite por hash de IP,
+  campo trampa y topes de longitud. La respuesta es siempre la misma para no
+  revelar si se guardó o se descartó por duplicada. Se guarda el **hash** de la
+  IP, nunca la IP en claro, y el consentimiento con marca de tiempo. La
+  conversión en ficha de integrante es una acción explícita y auditada.
+- **Importación.** Las planillas se leen en el navegador del operador. El
+  staging es transitorio y la limpieza diaria lo purga.
+- **Fotos.** No forman parte de la importación ni del formulario de postulación.
+
+## Notificaciones
+
+- El token del bot de Telegram se guarda **cifrado** (AES-256-GCM, clave
+  derivada de `AUTH_SESSION_SECRET`) y la API nunca lo devuelve. Los errores de
+  la API de Telegram se redactan antes de guardarlos o mostrarlos.
+- El aviso llega a un **tercero** (un grupo de Telegram). Por eso, por defecto,
+  solo lleva nombre, comuna y un enlace al panel; incluir teléfono y correo es
+  una decisión explícita del administrador.
+- Los mensajes se envían como texto plano: sin `parse_mode`, los datos del
+  público no pueden inyectar formato ni enlaces.
+- Un fallo de notificación no altera la operación que lo originó.
 
 ## Archivos
 
@@ -78,8 +106,10 @@ son granulares y se comprueban en el servidor.
 
 Se registran accesos y fallos de autenticación, cambios de usuarios y permisos,
 cambios de inventario, entregas/devoluciones/traslados/bajas, cambios
-institucionales, publicación/retirada de contenido y exportaciones. **No** se
-registran contraseñas, tokens ni datos personales innecesarios.
+institucionales, publicación/retirada de contenido, importaciones,
+postulaciones (envío, cambio de estado, contacto, conversión) y configuración de
+notificaciones. **No** se registran contraseñas, tokens ni datos personales
+innecesarios.
 
 ## Integridad
 

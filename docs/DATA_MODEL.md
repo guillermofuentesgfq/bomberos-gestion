@@ -86,6 +86,58 @@ público.
 | `galleries` / `gallery_photos` | álbumes y sus fotos |
 | `seo_settings` | metadatos SEO globales (sitemap, Open Graph, robots) |
 
+La sección `apply` («Postulación») guarda su configuración en el JSON
+`site_sections.settings`. Solo se aceptan campos de una lista blanca y el texto
+enriquecido (introducción y requisitos) se sanea **al guardar y al leer**.
+
+## Importación masiva
+
+El staging es transitorio: la limpieza diaria lo purga a los 7 días (filas ya
+confirmadas) o a los 30 (lotes abandonados).
+
+| Tabla | Propósito |
+|---|---|
+| `import_batches` | un lote: tipo (material/persona), archivo, estado, conteos y modo |
+| `import_rows_material` | fila analizada de material, con sus incidencias y los ids ya resueltos |
+| `import_rows_person` | fila analizada de persona, con sus incidencias y el `person_id` que se asigna al confirmar |
+
+`import_rows_material` guarda los **ids resueltos** (categoría, tipo, ubicación,
+condición) para que la confirmación sea SQL set-based, sin recorrer filas en el
+Worker.
+
+## Postulaciones
+
+| Tabla | Propósito |
+|---|---|
+| `applicants` | postulación recibida del sitio público, con estado y consentimiento |
+| `applicant_notes` | notas internas del equipo |
+| `applicant_contacts` | bitácora de contacto (teléfono, WhatsApp, presencial, otro) |
+
+`applicants.consent_at` es la prueba del consentimiento y `ip_hash` el hash de la
+IP de origen (nunca la IP en claro). `person_id` enlaza con la ficha de
+integrante cuando la postulación se convierte. No hay canal «correo»: el sistema
+no envía correo.
+
+## Notificaciones
+
+| Tabla | Propósito |
+|---|---|
+| `notification_channels` | canal (hoy, Telegram): activo, `config` sin secretos y `secret` cifrado |
+| `notification_log` | intentos de entrega, con estado y detalle saneado |
+
+El token del bot se guarda cifrado con AES-256-GCM (`base64(iv || ciphertext ||
+tag)`), con clave derivada de `AUTH_SESSION_SECRET`. Ver
+[`NOTIFICATIONS.md`](NOTIFICATIONS.md).
+
+## Limitador de peticiones
+
+| Tabla | Propósito |
+|---|---|
+| `throttle_events` | eventos por cubo y clave (hash de IP), para limitar endpoints públicos |
+
+Se usa en la postulación pública (5 por hora y 20 por día por conexión). La
+limpieza diaria lo purga.
+
 ## Invariantes garantizados por el esquema
 
 - `stock_levels.quantity >= 0`.

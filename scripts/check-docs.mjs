@@ -18,6 +18,8 @@ const required = [
   'docs/RELEASING.md',
   'docs/BACKUP_AND_RESTORE.md',
   'docs/AUDIT.md',
+  'docs/IMPORTING.md',
+  'docs/NOTIFICATIONS.md',
   'deploy/README.md',
   'SECURITY.md',
   'TESTING.md',

@@ -275,3 +275,50 @@ export function fetchPublicGallery(
     signal,
   ).then((data) => data.gallery);
 }
+
+export interface ApplicationInput {
+  fullName: string;
+  rut?: string | undefined;
+  birthDate?: string | undefined;
+  email?: string | undefined;
+  phone?: string | undefined;
+  address?: string | undefined;
+  commune?: string | undefined;
+  motivation?: string | undefined;
+  availability?: string | undefined;
+  consent: boolean;
+  /** Campo trampa: una persona nunca lo rellena. */
+  website?: string | undefined;
+}
+
+/**
+ * `POST /applications` — postulación pública.
+ *
+ * Es una mutación sin sesión: el servidor exige que venga del mismo sitio. La
+ * respuesta es la misma tanto si se guardó como si se descartó por duplicada.
+ */
+export async function submitApplication(input: ApplicationInput): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(`${BASE}/applications`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    throw new Error('No se pudo enviar la postulación. Revisa tu conexión e inténtalo de nuevo.');
+  }
+
+  if (response.ok) return;
+
+  let message = 'No se pudo enviar la postulación. Inténtalo de nuevo.';
+  try {
+    const payload = (await response.json()) as { ok?: boolean; error?: { message?: string } };
+    if (payload.error?.message) message = payload.error.message;
+  } catch {
+    // Se conserva el mensaje genérico.
+  }
+  throw new Error(message);
+}
+

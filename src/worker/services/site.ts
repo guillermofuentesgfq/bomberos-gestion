@@ -3,6 +3,7 @@ import {
   getInstitutionConfig,
   getSeoConfig,
   listSiteSections,
+  normalizeSectionSettings,
   MAX_GALLERY_PHOTOS,
   type SocialLink,
 } from './cms';
@@ -211,7 +212,13 @@ export async function getPublicSite(db: D1Database): Promise<PublicSite> {
   const sections: PublicSection[] = allSections
     .filter((section) => section.isEnabled)
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((section) => ({ key: section.key, sortOrder: section.sortOrder, settings: section.settings }));
+    .map((section) => ({
+      key: section.key,
+      sortOrder: section.sortOrder,
+      // Se vuelve a normalizar al leer: el saneado del HTML también ocurre al
+      // guardar, pero así un dato antiguo o manipulado no llega al público.
+      settings: normalizeSectionSettings(section.key, section.settings),
+    }));
 
   return {
     institution: {

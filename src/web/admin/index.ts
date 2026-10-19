@@ -18,4 +18,7 @@ export { PersonDetailPage } from './PersonDetailPage';
 export { MovementsPage } from './MovementsPage';
 export { ContentAdminPage } from './ContentAdminPage';
 export { SettingsPage } from './SettingsPage';
+export { ImportPage } from './ImportPage';
+export { ApplicantsPage } from './ApplicantsPage';
+export { ApplicantDetailPage } from './ApplicantsPage';
 export { ImageUploader } from './ImageUploader';

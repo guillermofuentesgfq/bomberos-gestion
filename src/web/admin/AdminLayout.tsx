@@ -39,6 +39,7 @@ export interface AdminSection {
 export const ADMIN_SECTIONS: readonly AdminSection[] = [
   { label: 'Inventario', path: '/admin/inventario' },
   { label: 'Personas', path: '/admin/personas' },
+  { label: 'Postulantes', path: '/admin/postulantes', permission: 'applicants.read' },
   { label: 'Movimientos', path: '/admin/movimientos' },
   { label: 'Informes', path: '/admin/informes' },
   { label: 'Contenido', path: '/admin/contenido' },
@@ -65,6 +66,7 @@ const SUB_NAVS: readonly {
     items: [
       { label: 'Materiales', path: '/admin/inventario' },
       { label: 'Catálogo', path: '/admin/inventario/catalogo' },
+      { label: 'Importar', path: '/admin/importar', permission: 'inventory.import' },
     ],
   },
   {
@@ -73,6 +75,7 @@ const SUB_NAVS: readonly {
     items: [
       { label: 'Integrantes', path: '/admin/personas' },
       { label: 'Catálogo', path: '/admin/personas/catalogo' },
+      { label: 'Importar', path: '/admin/importar', permission: 'persons.import' },
     ],
   },
 ];
@@ -169,9 +172,15 @@ export function AdminLayout({ user, onLogout, children, currentPath }: AdminLayo
           <nav key={label} aria-label={label} className="border-b border-line bg-muted">
             <div className="mx-auto w-full max-w-6xl px-6">
               <ul className="flex flex-wrap gap-1">
-                {items.map((item) => {
-                  const active = activeSubPath(currentPath, items) === item.path;
-                  return (
+                {items
+                  .filter(
+                    (item) =>
+                      item.permission === undefined ||
+                      user.permissions.includes(item.permission),
+                  )
+                  .map((item) => {
+                    const active = activeSubPath(currentPath, items) === item.path;
+                    return (
                     <li key={item.path}>
                       <Link
                         to={item.path}
@@ -186,8 +195,8 @@ export function AdminLayout({ user, onLogout, children, currentPath }: AdminLayo
                         {item.label}
                       </Link>
                     </li>
-                  );
-                })}
+                    );
+                  })}
               </ul>
             </div>
           </nav>

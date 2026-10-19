@@ -139,7 +139,7 @@ export async function fetchSections(): Promise<SiteSection[]> {
 
 export function updateSection(
   key: string,
-  patch: { isEnabled?: boolean },
+  patch: { isEnabled?: boolean; settings?: Record<string, unknown> },
   csrfToken: string,
 ): Promise<{ section: SiteSection }> {
   return request('PUT', `${SITE}/sections/${encodeURIComponent(key)}`, csrfToken, patch);

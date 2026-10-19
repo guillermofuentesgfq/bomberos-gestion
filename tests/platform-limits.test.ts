@@ -3,6 +3,7 @@ import { env } from 'cloudflare:test';
 import { PASSWORD_ITERATIONS } from '../src/worker/lib/crypto';
 import { likePattern } from '../src/worker/lib/sql';
 import { listObjectSummaries } from '../src/worker/repositories/content';
+import { MAX_ROWS_PER_CHUNK, MAX_ROWS_PER_FILE } from '../src/worker/services/imports';
 import { ApiClient } from './helpers';
 
 /**
@@ -97,5 +98,35 @@ describe('límites de la plataforma', () => {
     const tooLong = encodeURIComponent('a'.repeat(300));
     expect((await api.get(`/api/v1/inventory/materials?q=${tooLong}`)).status).toBe(400);
     expect((await api.get(`/api/v1/persons?q=${tooLong}`)).status).toBe(200);
+  });
+
+  it('mantiene la importación dentro del presupuesto de consultas de D1', () => {
+    // Cada lote de filas se escribe en sentencias multi-fila de 100 parámetros:
+    // con 16 columnas de material entran 6 filas por sentencia. Un lote de 200
+    // filas cuesta ~34 sentencias de staging, más las ~10 lecturas de catálogo y
+    // de duplicados: cabe en las 50 consultas por invocación del plan gratuito.
+    const materialColumns = 16;
+    const rowsPerStatement = Math.floor(BOUND_PARAMS_MAX / materialColumns);
+    const stagingStatements = Math.ceil(MAX_ROWS_PER_CHUNK / rowsPerStatement);
+    expect(stagingStatements + 12).toBeLessThanOrEqual(50);
+
+    // La confirmación es set-based: media docena de sentencias, no una por fila.
+    expect(MAX_ROWS_PER_FILE).toBeGreaterThanOrEqual(1000);
+    expect(MAX_ROWS_PER_CHUNK).toBeLessThanOrEqual(200);
+  });
+
+  it('rechaza un lote de importación más grande que el tope por petición', async () => {
+    const api = new ApiClient();
+    await api.setupAdmin();
+    const created = await api.post<{ id: number }>('/api/v1/imports', { kind: 'material' });
+    const batchId = created.body.data?.id ?? 0;
+
+    const rows = Array.from({ length: MAX_ROWS_PER_CHUNK + 1 }, (_, index) => ({
+      rowNo: index + 1,
+      code: `M-${index}`,
+      name: 'Material',
+    }));
+    const response = await api.post(`/api/v1/imports/${batchId}/rows`, { rows });
+    expect(response.status).toBe(422);
   });
 });

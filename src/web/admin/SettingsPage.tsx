@@ -19,6 +19,8 @@ import { toPlainText } from '../lib/richtext';
 import { errorMessage } from './adminApi';
 import { CheckboxField, StatusMessage, TextAreaField } from './adminFields';
 import { ImageUploader } from './ImageUploader';
+import { ApplySettings } from './ApplySettings';
+import { NotificationsSettings } from './NotificationsSettings';
 import {
   fetchInstitutionSettings,
   fetchSections,
@@ -41,6 +43,7 @@ const SECTION_LABELS: Record<string, string> = {
   news: 'Noticias',
   activities: 'Actividades',
   contact: 'Contacto',
+  apply: 'Postulación',
   footer: 'Pie de página',
 };
 
@@ -271,6 +274,8 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
     );
   }
 
+  const applySection = sections.find((section) => section.key === 'apply') ?? null;
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -280,7 +285,6 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
 
       {notice ? <Alert tone="success">{notice}</Alert> : null}
       {blockError ? <Alert tone="error" title="No se pudo completar">{blockError}</Alert> : null}
-
       <Card className="flex flex-col gap-5">
         <h2 className="text-xl font-bold text-ink">Secciones de la portada</h2>
         <p className="text-base text-ink-muted">
@@ -581,6 +585,12 @@ export function SettingsPage({ csrfToken }: { csrfToken: string }) {
           </div>
         </form>
       </Card>
+
+      {applySection ? (
+        <ApplySettings section={applySection} csrfToken={csrfToken} />
+      ) : null}
+
+      <NotificationsSettings csrfToken={csrfToken} />
     </div>
   );
 }
