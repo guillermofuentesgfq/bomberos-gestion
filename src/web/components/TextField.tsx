@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import type { InputHTMLAttributes } from 'react';
 import { cx } from '../lib/cx';
+import { SINGLE_LINE_CONTROL_CLASSES } from './formControlStyles';
 
 export interface TextFieldProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> {
   label: string;
@@ -44,7 +45,7 @@ export function TextField({
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
         className={cx(
-          'min-h-11 w-full rounded-lg border bg-surface px-4 py-3 text-base text-ink transition-colors duration-200 ease-out',
+          SINGLE_LINE_CONTROL_CLASSES,
           error ? 'border-destructive' : 'border-line',
           className,
         )}
