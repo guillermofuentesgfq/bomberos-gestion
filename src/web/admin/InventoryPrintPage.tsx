@@ -18,6 +18,7 @@ import { Link } from '../lib/router';
 import { useAsync } from '../lib/useAsync';
 import { StatusMessage } from './adminFields';
 import { errorMessage, fetchInventoryReport } from './adminApi';
+import { MaterialPhoto } from './MaterialPhoto';
 import type {
   InventoryPrintDetail,
   InventoryPrintInstitution,
@@ -127,6 +128,9 @@ function TotalsTable({ rows }: { rows: readonly InventoryPrintTotals[] }) {
             Código
           </th>
           <th scope="col" className="px-2 py-2 font-bold text-ink">
+            Foto
+          </th>
+          <th scope="col" className="px-2 py-2 font-bold text-ink">
             Material
           </th>
           <th scope="col" className="px-2 py-2 font-bold text-ink">
@@ -156,18 +160,14 @@ function TotalsTable({ rows }: { rows: readonly InventoryPrintTotals[] }) {
         {rows.map((row) => (
           <tr key={row.id} className="border-b border-line align-top">
             <td className="px-2 py-2 tabular-nums text-ink">{row.code}</td>
-            <td className="px-2 py-2 text-ink">
-              <span className="flex items-center gap-2">
-                {row.photoObjectId !== null ? (
-                  <img
-                    src={`/api/v1/files/${row.photoObjectId}`}
-                    alt={`Foto de ${row.name}`}
-                    className="h-11 w-11 shrink-0 rounded border border-line object-cover"
-                  />
-                ) : null}
-                <span>{row.name}</span>
-              </span>
+            <td className="px-2 py-2">
+              <MaterialPhoto
+                photoObjectId={row.photoObjectId}
+                name={row.name}
+                className="h-11 w-11 rounded"
+              />
             </td>
+            <td className="px-2 py-2 text-ink">{row.name}</td>
             <td className="px-2 py-2 text-ink">{row.category || '—'}</td>
             <td className="px-2 py-2 text-ink">{row.type || '—'}</td>
             <td className="px-2 py-2 text-right tabular-nums text-ink">{row.total}</td>

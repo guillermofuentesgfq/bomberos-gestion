@@ -21,6 +21,7 @@ import { useAsync } from '../lib/useAsync';
 import { CheckboxField, SelectField, StatusMessage, TextAreaField } from './adminFields';
 import type { SelectOption } from './adminFields';
 import { ImageUploader } from './ImageUploader';
+import { MaterialPhoto } from './MaterialPhoto';
 import { useForm } from './useForm';
 import {
   createMaterial,
@@ -1163,6 +1164,9 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
                     Código
                   </th>
                   <th scope="col" className="px-3 py-2 font-bold text-ink">
+                    Foto
+                  </th>
+                  <th scope="col" className="px-3 py-2 font-bold text-ink">
                     Nombre
                   </th>
                   <th scope="col" className="px-3 py-2 font-bold text-ink">
@@ -1191,18 +1195,15 @@ export function InventoryPage({ csrfToken }: { csrfToken: string }) {
                     <td className="px-3 py-2 font-semibold tabular-nums text-ink">
                       {material.code}
                     </td>
-                    <td className="px-3 py-2 text-ink">
-                      <span className="flex items-center gap-3">
-                        {material.photoObjectId !== null ? (
-                          <img
-                            src={`/api/v1/files/${material.photoObjectId}`}
-                            alt={`Foto de ${material.name}`}
-                            className="h-10 w-10 shrink-0 rounded-md border border-line object-cover"
-                          />
-                        ) : null}
-                        <span>{material.name}</span>
-                      </span>
+                    <td className="px-3 py-2">
+                      <MaterialPhoto
+                        photoObjectId={material.photoObjectId}
+                        name={material.name}
+                        className="h-10 w-10 rounded-md"
+                        placeholder
+                      />
                     </td>
+                    <td className="px-3 py-2 text-ink">{material.name}</td>
                     <td className="px-3 py-2 text-ink-muted">{brandModel(material)}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-ink">{material.total}</td>
                     <td className="px-3 py-2 text-right tabular-nums text-ink">
