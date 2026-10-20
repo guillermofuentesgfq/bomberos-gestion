@@ -7,6 +7,19 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.4.0] - 2026-10-20
+
+### Añadido
+
+- **Columna de foto en el listado de materiales y en el inventario imprimible.** La
+  foto deja de ir junto al nombre y pasa a una columna propia. En el listado, los
+  materiales sin foto muestran un marcador visible; en el informe imprimible la
+  celda queda en blanco para no gastar tinta.
+
+### Notas de actualización
+
+- Sin migraciones ni pasos manuales.
+
 ## [0.3.1] - 2026-10-20
 
 ### Corregido
