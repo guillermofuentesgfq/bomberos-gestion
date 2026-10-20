@@ -14,10 +14,11 @@ import type {
   SelectHTMLAttributes,
   TextareaHTMLAttributes,
 } from 'react';
+import {
+  SINGLE_LINE_CONTROL_CLASSES,
+  TEXTAREA_CONTROL_CLASSES,
+} from '../components/formControlStyles';
 import { cx } from '../lib/cx';
-
-const CONTROL_CLASSES =
-  'min-h-11 w-full rounded-lg border bg-surface px-4 py-3 text-base text-ink transition-colors duration-200 ease-out';
 
 export interface SelectOption {
   value: string;
@@ -62,7 +63,11 @@ export function SelectField({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(CONTROL_CLASSES, error ? 'border-destructive' : 'border-line', className)}
+        className={cx(
+          SINGLE_LINE_CONTROL_CLASSES,
+          error ? 'border-destructive' : 'border-line',
+          className,
+        )}
         {...rest}
       >
         {placeholder ? <option value="">{placeholder}</option> : null}
@@ -122,7 +127,11 @@ export function TextAreaField({
         required={required}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(CONTROL_CLASSES, error ? 'border-destructive' : 'border-line', className)}
+        className={cx(
+          TEXTAREA_CONTROL_CLASSES,
+          error ? 'border-destructive' : 'border-line',
+          className,
+        )}
         {...rest}
       />
       {hint ? (
