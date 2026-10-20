@@ -7,6 +7,16 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.3.1] - 2026-10-20
+
+### Corregido
+
+- **Los selectores de formulario no tenían la misma altura que los inputs.** En
+  algunos navegadores, como Safari en macOS, el `select` ignoraba el relleno
+  vertical y quedaba más bajo que los campos de texto contiguos. Los controles de
+  una línea del panel y del sitio comparten ahora un alto fijo de 48 px, definido
+  en un único lugar.
+
 ## [0.3.0] - 2026-10-19
 
 La versión que cierra la funcionalidad pendiente: **importación desde planilla**,
