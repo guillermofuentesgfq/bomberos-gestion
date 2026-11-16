@@ -7,6 +7,34 @@ procedimiento para publicar una versión está en
 
 ## [No publicado]
 
+## [0.4.1] - 2026-11-16
+
+Actualización de dependencias con correcciones de seguridad. **Actualizar no
+exige ninguna acción**: no hay migraciones nuevas ni cambios de esquema, y el
+comportamiento de la aplicación es el mismo.
+
+### Seguridad
+
+- **`hono` 4.13.13 → 4.13.16.** Cierra cinco avisos publicados por el proyecto.
+  A esta instalación solo le toca de refilón —usa el núcleo del enrutador,
+  `hono/cookie` y `hono/secure-headers`, y no `mount()`, el ayudante `css`,
+  `csrf()` ni `validator('form')`—, pero el rango es el mismo que usa la
+  dependencia, así que conviene ir a la versión corregida. Los arreglos también
+  endurecen el tratamiento de `jwt` y del enrutador por defecto
+  (`RegExpRouter`).
+- **`undici` 7.29.1 → 7.30.1**, dependencia de `wrangler` para desarrollo y
+  despliegue, no del Worker desplegado. Corrige varios avisos de severidad alta
+  y media en el cliente HTTP de Node.js: denegación de servicio por
+  renegociación TLS, omisión de la validación de certificados a través de
+  `Agent`, envenenamiento de caché en redirecciones entre orígenes y omisión de
+  las comprobaciones de integridad (SRI), entre otros.
+
+### Cambiado
+
+- **`wrangler` 4.151.0 → 4.156.0** y **`@cloudflare/vitest-plugin` 1.4.3 →
+  1.4.11**, herramientas de desarrollo y despliegue. La aplicación desplegada no
+  cambia.
+
 ## [0.4.0] - 2026-10-20
 
 ### Añadido
